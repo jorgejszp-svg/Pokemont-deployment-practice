@@ -2,6 +2,8 @@
 
 **An interactive fan Pokédex with all 1025 Pokémon.** A single-page site built with HTML, Tailwind CSS and vanilla JavaScript. I made it as a class exercise to practise deploying a site: it is served with Nginx next to [PatataRank](https://github.com/jorgejszp-svg/Page-deployment-practice---deployment) on the same port 80, using name-based virtual hosts.
 
+**🔗 Live demo:** https://jorgejszp-svg.github.io/Pokemont-deployment-practice/
+
 ## Features
 
 - **Full National Pokédex (1025 Pokémon)** loaded live from [PokeAPI](https://pokeapi.co/), in Spanish, with search, region, type and category filters
@@ -34,7 +36,8 @@ The page needs an internet connection the first time to download the Pokédex. W
 
 ## Deployment
 
-Served with **Nginx** on an Ubuntu Server VM from `/srv/pokemont`, as a second virtual host on port 80, and published with Cloudflare Tunnel.
+- **GitHub Pages** from the `main` branch (live demo above).
+- **Nginx** on an Ubuntu Server VM from `/srv/pokemont`, as a second virtual host on port 80, published with Cloudflare Tunnel.
 
 ## Disclaimer
 
