@@ -1,0 +1,2592 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokémon't · PokéDex OS</title>
+  <meta name="description" content="Pokédex interactiva fan: catálogo, tier list, combates, constructor de equipos y minijuego." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23fff' stroke='%231E293B' stroke-width='8'/%3E%3Cpath d='M4 50a46 46 0 0 1 92 0z' fill='%23DC0A2D' stroke='%231E293B' stroke-width='8'/%3E%3Ccircle cx='50' cy='50' r='13' fill='%23fff' stroke='%231E293B' stroke-width='8'/%3E%3C/svg%3E" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            pixel: ['"Press Start 2P"', 'monospace'],
+            display: ['Fredoka', 'sans-serif'],
+            sans: ['Nunito', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --shell-main: #DC0A2D;
+      --shell-dark: #990720;
+      --shell-light: #FF3B5C;
+      --shell-trim: #780418;
+      --lcd-bg: #F4F9FD;
+      --lcd-grid: rgba(59, 76, 202, 0.06);
+    }
+
+    body.theme-johto {
+      --shell-main: #D99B16;
+      --shell-dark: #9A6B08;
+      --shell-light: #FACC15;
+      --shell-trim: #714D04;
+      --lcd-bg: #FFFBEB;
+      --lcd-grid: rgba(180, 83, 9, 0.06);
+    }
+
+    body.theme-hoenn {
+      --shell-main: #0D9488;
+      --shell-dark: #0F766E;
+      --shell-light: #2DD4BF;
+      --shell-trim: #115E59;
+      --lcd-bg: #F0FDFA;
+      --lcd-grid: rgba(13, 148, 136, 0.07);
+    }
+
+    body {
+      background-color: var(--shell-main);
+      background-image:
+        radial-gradient(circle at 25px 25px, rgba(255, 255, 255, 0.08) 2px, transparent 0),
+        radial-gradient(circle at 75px 75px, rgba(0, 0, 0, 0.08) 2px, transparent 0);
+      background-size: 100px 100px;
+      color: #1E293B;
+      transition: background-color 0.35s ease;
+      overflow-x: hidden;
+    }
+
+    /* Pantalla LCD Interna de la Pokédex */
+    .pokedex-screen {
+      background-color: var(--lcd-bg);
+      background-image:
+        linear-gradient(to right, var(--lcd-grid) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--lcd-grid) 1px, transparent 1px);
+      background-size: 20px 20px;
+      border: 4px solid #1E293B;
+      box-shadow:
+        inset 0 4px 10px rgba(15, 23, 42, 0.14),
+        0 8px 0 #1E293B;
+    }
+
+    /* Botones físicos estilo Nintendo / GBA */
+    .nintendo-btn {
+      border: 3px solid #1E293B;
+      box-shadow: 0 4px 0 #1E293B;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.15s ease;
+    }
+    .nintendo-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 5px 0 #1E293B;
+    }
+    .nintendo-btn:active, .nintendo-btn.active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #1E293B;
+    }
+
+    /* Tarjetas con sombra sólida tipo carta coleccionable */
+    .poke-card {
+      border: 3px solid #1E293B;
+      box-shadow: 4px 4px 0 #1E293B;
+      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+    }
+    .poke-card:hover {
+      transform: translate(-2px, -4px);
+      box-shadow: 6px 8px 0 #1E293B;
+    }
+
+    /* Lente óptica clásica de Pokédex */
+    @keyframes lensPulse {
+      0%, 100% {
+        box-shadow: inset -4px -4px 10px rgba(3, 105, 161, 0.8), 0 0 0 4px #FFFFFF, 0 4px 0 4px #1E293B, 0 0 16px rgba(56, 189, 248, 0.7);
+      }
+      50% {
+        box-shadow: inset -4px -4px 10px rgba(3, 105, 161, 0.9), 0 0 0 4px #FFFFFF, 0 4px 0 4px #1E293B, 0 0 28px rgba(125, 211, 252, 1);
+      }
+    }
+    .pokedex-lens {
+      background: radial-gradient(circle at 32% 32%, #E0F2FE 0%, #38BDF8 35%, #0284C7 75%, #0369A1 100%);
+      animation: lensPulse 2.8s infinite ease-in-out;
+    }
+
+    /* Fondo icónico "¿Quién es ese Pokémon?" del anime */
+    .whos-that-bg {
+      background:
+        repeating-conic-gradient(
+          from 0deg at 50% 50%,
+          #1D4ED8 0deg 10deg,
+          #2563EB 10deg 20deg
+        );
+      border: 4px solid #1E293B;
+      box-shadow: inset 0 0 40px rgba(15, 23, 42, 0.65);
+    }
+
+    .silhouette-img {
+      filter: brightness(0) drop-shadow(0 6px 0 rgba(15, 23, 42, 0.5));
+      transition: filter 0.45s ease, transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+      transform: scale(0.94);
+    }
+    .revealed-img {
+      filter: brightness(1) drop-shadow(0 10px 14px rgba(15, 23, 42, 0.55));
+      transform: scale(1.06);
+    }
+
+    /* Marca de agua Pokéball en tarjetas */
+    .pokeball-watermark {
+      position: absolute;
+      right: -18px;
+      bottom: -18px;
+      width: 112px;
+      height: 112px;
+      border-radius: 9999px;
+      border: 10px solid rgba(30, 41, 59, 0.08);
+      pointer-events: none;
+    }
+    .pokeball-watermark::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: -10px;
+      right: -10px;
+      height: 8px;
+      background: rgba(30, 41, 59, 0.08);
+      transform: translateY(-50%);
+    }
+    .pokeball-watermark::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 28px;
+      height: 28px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.45);
+      border: 7px solid rgba(30, 41, 59, 0.12);
+      transform: translate(-50%, -50%);
+    }
+
+    /* Cuadro de diálogo estilo Game Boy / DS */
+    .gba-dialog {
+      background: #FFFFFF;
+      border: 4px solid #1E293B;
+      box-shadow: inset 0 0 0 3px #CBD5E1, 4px 4px 0 #1E293B;
+    }
+
+    /* Ocultar scrollbar horizontal en pestañas móviles */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Tailwind no trae border-3 por defecto: sin esto los bordes de 3px no se veían */
+    .border-3 { border-width: 3px; }
+
+    /* Barras de estadísticas que crecen al aparecer */
+    @keyframes growBar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .stat-fill { transform-origin: left; animation: growBar 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+    /* Combate animado */
+    .hp-fill { transition: width 0.6s ease, background-color 0.3s ease; }
+    @keyframes hitShake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-5px); }
+      80% { transform: translateX(5px); }
+    }
+    .hit-shake { animation: hitShake 0.4s ease; }
+    @keyframes faintDown { to { transform: translateY(40px); opacity: 0; } }
+    .fainted { animation: faintDown 0.6s ease forwards; }
+
+    /* Pokéball girando mientras carga la Pokédex */
+    .pokeball-spin {
+      position: relative;
+      border-radius: 9999px;
+      border: 4px solid #1E293B;
+      background: linear-gradient(180deg, #DC0A2D 0 46%, #1E293B 46% 54%, #FFFFFF 54% 100%);
+      animation: spinBall 1s linear infinite;
+    }
+    .pokeball-spin::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 18px;
+      height: 18px;
+      border-radius: 9999px;
+      background: #FFFFFF;
+      border: 4px solid #1E293B;
+      transform: translate(-50%, -50%);
+    }
+    @keyframes spinBall { to { transform: rotate(360deg); } }
+
+    /* Aviso flotante */
+    #toast { transition: opacity 0.25s ease, transform 0.25s ease; }
+    #toast.toast-hidden { opacity: 0; transform: translate(-50%, 16px); pointer-events: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen py-4 px-2 sm:px-5 lg:px-8 select-none">
+
+  <!-- CARCASA EXTERIOR DE LA POKÉDEX -->
+  <div class="max-w-7xl mx-auto rounded-[28px] sm:rounded-[36px] border-4 border-slate-900 shadow-[0_14px_0_#1E293B] overflow-hidden" style="background-color: var(--shell-main);">
+    
+    <!-- CABECERA BISELADA DE CONSOLA (LENTE + LEDS + SELECTOR REGIÓN) -->
+    <header class="px-4 sm:px-8 pt-5 pb-4 border-b-4 border-slate-900 relative" style="background: linear-gradient(180deg, var(--shell-light) 0%, var(--shell-main) 65%, var(--shell-dark) 100%);">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        
+        <!-- Lente Óptica Azul + 3 LEDs + Título -->
+        <div class="flex items-center gap-4">
+          <button onclick="playDexBeep(660); switchTab('pokedex')" title="Reiniciar Escáner Pokédex" class="w-14 h-14 sm:w-16 sm:h-16 rounded-full pokedex-lens shrink-0 cursor-pointer active:scale-95 transition-transform"></button>
+          
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-2">
+              <span class="w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-slate-900 shadow-[inset_0_2px_2px_rgba(255,255,255,0.7)]"></span>
+              <span class="w-3.5 h-3.5 rounded-full bg-amber-300 border-2 border-slate-900 shadow-[inset_0_2px_2px_rgba(255,255,255,0.7)]"></span>
+              <span class="w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-slate-900 shadow-[inset_0_2px_2px_rgba(255,255,255,0.7)]"></span>
+              <span class="ml-1 px-2 py-0.5 rounded bg-slate-900 text-amber-300 font-pixel text-[9px] sm:text-[10px]">OS v10.2</span>
+            </div>
+            <h1 class="font-display font-bold text-2xl sm:text-3xl text-white drop-shadow-[2px_2px_0_#1E293B] tracking-tight">
+              PokéDex Nacional <span class="text-amber-300">&amp; Liga</span>
+            </h1>
+          </div>
+        </div>
+
+        <!-- Controles de Carcasa: Selector de Edición/Región, Sonido y Capturados -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <!-- Selector de Carcasa Regional -->
+          <div class="flex items-center gap-1.5 bg-slate-900/25 p-1.5 rounded-2xl border-2 border-slate-900/40">
+            <span class="text-[11px] font-extrabold text-white uppercase px-1.5 hidden sm:inline">Carcasa:</span>
+            <button onclick="setShellTheme('kanto')" id="themeBtn-kanto" class="px-2.5 py-1 rounded-xl text-xs font-extrabold bg-red-600 text-white border-2 border-slate-900 shadow-[0_2px_0_#1E293B]">Kanto</button>
+            <button onclick="setShellTheme('johto')" id="themeBtn-johto" class="px-2.5 py-1 rounded-xl text-xs font-extrabold bg-amber-400 text-slate-900 border-2 border-slate-900 shadow-[0_2px_0_#1E293B] opacity-80">Johto</button>
+            <button onclick="setShellTheme('hoenn')" id="themeBtn-hoenn" class="px-2.5 py-1 rounded-xl text-xs font-extrabold bg-teal-400 text-slate-900 border-2 border-slate-900 shadow-[0_2px_0_#1E293B] opacity-80">Hoenn</button>
+          </div>
+
+          <!-- Contador de Capturados -->
+          <button onclick="toggleCapturedOnly()" id="capturedFilterBtn" class="nintendo-btn px-3.5 py-2 rounded-xl bg-white text-slate-900 font-extrabold text-xs flex items-center gap-2">
+            <span class="inline-block w-4 h-4 rounded-full border-2 border-slate-900 bg-gradient-to-b from-red-500 from-50% to-white to-50%"></span>
+            <span>Capturados: <strong id="capturedCount" class="text-red-600">0</strong>/<span id="capturedTotal">36</span></span>
+          </button>
+
+          <!-- Botón de Sonido Retro -->
+          <button onclick="toggleSound()" id="soundToggleBtn" title="Activar/Desactivar sonidos Pokédex" class="nintendo-btn px-3 py-2 rounded-xl bg-amber-300 text-slate-900 font-extrabold text-xs">
+            🔊 SFX
+          </button>
+        </div>
+      </div>
+
+      <!-- BOTONERA DE CARTUCHOS / PESTAÑAS DE NAVEGACIÓN -->
+      <nav class="flex items-center gap-2.5 overflow-x-auto no-scrollbar pt-4 pb-1">
+        <button onclick="switchTab('pokedex')" data-tab="pokedex" class="tab-btn nintendo-btn active shrink-0 px-4 py-2.5 rounded-xl bg-amber-300 text-slate-900 font-display font-bold text-sm flex items-center gap-2">
+          <span>📖</span> Pokédex Nacional
+        </button>
+        <button onclick="switchTab('ranking')" data-tab="ranking" class="tab-btn nintendo-btn shrink-0 px-4 py-2.5 rounded-xl bg-white text-slate-800 font-display font-bold text-sm flex items-center gap-2">
+          <span>🏆</span> Tier List &amp; Mejores
+        </button>
+        <button onclick="switchTab('versus')" data-tab="versus" class="tab-btn nintendo-btn shrink-0 px-4 py-2.5 rounded-xl bg-white text-slate-800 font-display font-bold text-sm flex items-center gap-2">
+          <span>⚔️</span> Combate Versus
+        </button>
+        <button onclick="switchTab('team')" data-tab="team" class="tab-btn nintendo-btn shrink-0 px-4 py-2.5 rounded-xl bg-white text-slate-800 font-display font-bold text-sm flex items-center gap-2">
+          <span>🎒</span> Mi Equipo <span id="teamCountBadge" class="px-1.5 py-0.5 rounded-md bg-slate-900 text-amber-300 font-pixel text-[8px]">0/6</span>
+        </button>
+        <button onclick="switchTab('types')" data-tab="types" class="tab-btn nintendo-btn shrink-0 px-4 py-2.5 rounded-xl bg-white text-slate-800 font-display font-bold text-sm flex items-center gap-2">
+          <span>🧪</span> Tabla de Tipos
+        </button>
+        <button onclick="switchTab('quiz')" data-tab="quiz" class="tab-btn nintendo-btn shrink-0 px-4 py-2.5 rounded-xl bg-white text-slate-800 font-display font-bold text-sm flex items-center gap-2">
+          <span>❓</span> ¿Quién es ese Pokémon?
+        </button>
+      </nav>
+    </header>
+
+    <!-- PANTALLA PRINCIPAL LCD DE LA POKÉDEX -->
+    <div class="p-3 sm:p-6">
+      <main class="pokedex-screen relative rounded-2xl sm:rounded-3xl p-4 sm:p-7 min-h-[75vh]">
+
+        <!-- Pantalla de carga mientras se descarga la Pokédex desde PokeAPI -->
+        <div id="bootLoader" class="absolute inset-0 z-30 flex flex-col items-center justify-start pt-[20vh] gap-4 rounded-2xl sm:rounded-3xl text-center px-6" style="background-color: var(--lcd-bg);">
+          <div class="pokeball-spin w-16 h-16"></div>
+          <p class="font-pixel text-[10px] sm:text-xs text-slate-900">DESCARGANDO POKÉDEX NACIONAL...</p>
+          <p class="text-xs font-bold text-slate-600 max-w-sm">Conectando con PokeAPI para traer los 1025 Pokémon. Solo tarda la primera vez: después se guarda en este navegador.</p>
+        </div>
+
+        <!-- =============================================================== -->
+        <!-- PESTAÑA 1: POKÉDEX NACIONAL (CATÁLOGO + BUSCADOR + FILTROS)     -->
+        <!-- =============================================================== -->
+        <section id="view-pokedex" class="tab-view space-y-6">
+          
+          <!-- Banner Bienvenida Profesor Oak / Datos Clave -->
+          <div class="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 rounded-2xl p-5 sm:p-6 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B] text-white">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+              <div class="lg:col-span-7 space-y-2">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-300 text-slate-900 font-pixel text-[9px] border-2 border-slate-900">
+                  ★ BASE DE DATOS OFICIAL DE ENTRENADOR
+                </div>
+                <h2 class="font-display font-bold text-2xl sm:text-3xl leading-tight">
+                  Explora, captura y analiza los <span id="dexTotalText">1025</span> Pokémon de la Pokédex Nacional
+                </h2>
+                <p class="text-blue-100 text-sm font-semibold">
+                  Pulsa sobre cualquier ficha para ver su versión <span class="text-amber-300 font-extrabold">Shiny ✨</span>, cadena evolutiva y debilidades por tipo. Los más competitivos traen además su set de torneo.
+                </p>
+                <span id="dataSourcePill" class="inline-block px-2.5 py-1 rounded-lg bg-slate-900/40 text-xs font-extrabold text-white">⏳ Conectando con PokeAPI...</span>
+              </div>
+              <div class="lg:col-span-5 grid grid-cols-2 gap-3">
+                <div class="bg-white/95 text-slate-900 rounded-xl p-3 border-2 border-slate-900 shadow-[3px_3px_0_#1E293B]">
+                  <span class="text-[10px] font-extrabold uppercase text-blue-700 block">Mayor Poder Base</span>
+                  <span class="font-display font-bold text-lg text-slate-900">Arceus (720)</span>
+                  <span class="text-[11px] font-bold text-slate-500 block">780 en Mega Rayquaza</span>
+                </div>
+                <div class="bg-white/95 text-slate-900 rounded-xl p-3 border-2 border-slate-900 shadow-[3px_3px_0_#1E293B]">
+                  <span class="text-[10px] font-extrabold uppercase text-red-600 block">Rey VGC Mundial</span>
+                  <span class="font-display font-bold text-lg text-slate-900">Incineroar</span>
+                  <span class="text-[11px] font-bold text-slate-500 block">Intimidación + Sorpresa</span>
+                </div>
+                <div class="bg-white/95 text-slate-900 rounded-xl p-3 border-2 border-slate-900 shadow-[3px_3px_0_#1E293B]">
+                  <span class="text-[10px] font-extrabold uppercase text-emerald-700 block">Pseudo-Legendarios</span>
+                  <span class="font-display font-bold text-lg text-slate-900">600 BST</span>
+                  <span class="text-[11px] font-bold text-slate-500 block">Dragonite, Garchomp...</span>
+                </div>
+                <div class="bg-white/95 text-slate-900 rounded-xl p-3 border-2 border-slate-900 shadow-[3px_3px_0_#1E293B]">
+                  <span class="text-[10px] font-extrabold uppercase text-amber-600 block">Acceso Rápido</span>
+                  <button onclick="openRandomModal()" class="mt-0.5 font-display font-bold text-sm text-blue-700 hover:underline flex items-center gap-1">
+                    🎲 Escáner Aleatorio
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel de Búsqueda y Filtros -->
+          <div class="bg-white rounded-2xl p-4 sm:p-5 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B] space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+              <!-- Buscador -->
+              <div class="lg:col-span-4 relative">
+                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-base">🔍</span>
+                <input
+                  type="text"
+                  id="searchInput"
+                  placeholder="Nombre, nº (25) o habilidad..."
+                  class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-100 border-2 border-slate-900 font-bold text-sm text-slate-900 placeholder-slate-500 focus:bg-amber-50 outline-none"
+                />
+              </div>
+
+              <!-- Filtro Generación -->
+              <div class="lg:col-span-3">
+                <select id="genSelect" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 border-2 border-slate-900 font-bold text-sm text-slate-900 outline-none">
+                  <option value="all">🗺️ Todas las Regiones</option>
+                  <option value="1">Gen I · Kanto</option>
+                  <option value="2">Gen II · Johto</option>
+                  <option value="3">Gen III · Hoenn</option>
+                  <option value="4">Gen IV · Sinnoh</option>
+                  <option value="5">Gen V · Teselia</option>
+                  <option value="6">Gen VI · Kalos</option>
+                  <option value="7">Gen VII · Alola</option>
+                  <option value="8">Gen VIII · Galar</option>
+                  <option value="9">Gen IX · Paldea</option>
+                </select>
+              </div>
+
+              <!-- Filtro Categoría -->
+              <div class="lg:col-span-3">
+                <select id="catSelect" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 border-2 border-slate-900 font-bold text-sm text-slate-900 outline-none">
+                  <option value="all">⭐ Todas las Categorías</option>
+                  <option value="starter">🌱 Iniciales (Starters)</option>
+                  <option value="pseudo">🐉 Pseudo-Legendarios (600)</option>
+                  <option value="legendary">👑 Legendarios &amp; Singulares</option>
+                  <option value="competitive">🏆 Élite Competitiva (con set)</option>
+                </select>
+              </div>
+
+              <!-- Ordenar -->
+              <div class="lg:col-span-2">
+                <select id="sortSelect" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 border-2 border-slate-900 font-bold text-sm text-slate-900 outline-none">
+                  <option value="id-asc"># Pokédex</option>
+                  <option value="bst-desc">⚡ Mayor BST</option>
+                  <option value="atk-desc">⚔️ Ataque</option>
+                  <option value="spa-desc">🔮 At. Esp.</option>
+                  <option value="spe-desc">💨 Velocidad</option>
+                  <option value="hp-desc">❤️ Salud (PS)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Filtro de los 18 Tipos Oficiales -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-extrabold uppercase tracking-wider text-slate-600">Filtrar por Tipo Elemental:</span>
+                <button onclick="resetAllFilters()" class="text-xs font-extrabold text-red-600 hover:underline">Restablecer todo</button>
+              </div>
+              <div id="typeFilterBar" class="flex flex-wrap gap-1.5">
+                <!-- Generado por JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Contador de Resultados -->
+          <div class="flex items-center justify-between px-1">
+            <p class="font-display font-bold text-base text-slate-800">
+              Pokémon encontrados: <span id="visibleCount" class="px-2.5 py-0.5 rounded-lg bg-slate-900 text-amber-300 text-sm">36</span>
+            </p>
+            <span class="text-xs font-bold text-slate-600 hidden sm:inline">Pulsa la Pokéball de cada ficha para marcarlo como capturado</span>
+          </div>
+
+          <!-- Rejilla de Fichas Pokémon -->
+          <div id="pokedexGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <!-- Generado por JS -->
+          </div>
+          <div id="loadMoreBox" class="flex justify-center"></div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- PESTAÑA 2: TIER LIST & MEJORES POKÉMON (LIGA POKÉMON)           -->
+        <!-- =============================================================== -->
+        <section id="view-ranking" class="tab-view hidden space-y-6">
+          <div class="bg-white rounded-2xl p-5 sm:p-6 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B]">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b-2 border-slate-200 pb-4">
+              <div>
+                <span class="px-2.5 py-1 rounded-md bg-amber-300 border-2 border-slate-900 font-pixel text-[9px] text-slate-900">HALL DE LA FAMA</span>
+                <h2 class="font-display font-bold text-2xl sm:text-3xl text-slate-900 mt-2">Ranking de los Mejores Pokémon</h2>
+                <p class="text-sm font-semibold text-slate-600">Ordena a los campeones según su categoría competitiva o estadística dominante.</p>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                <button onclick="setRankMode('bst')" data-rmode="bst" class="rmode-btn nintendo-btn active px-3.5 py-2 rounded-xl bg-amber-300 text-slate-900 font-extrabold text-xs">⚡ Poder Total (BST)</button>
+                <button onclick="setRankMode('competitive')" data-rmode="competitive" class="rmode-btn nintendo-btn px-3.5 py-2 rounded-xl bg-white text-slate-800 font-extrabold text-xs">🏆 Meta Competitivo</button>
+                <button onclick="setRankMode('pseudo')" data-rmode="pseudo" class="rmode-btn nintendo-btn px-3.5 py-2 rounded-xl bg-white text-slate-800 font-extrabold text-xs">🐉 Pseudo-Legendarios</button>
+                <button onclick="setRankMode('starter')" data-rmode="starter" class="rmode-btn nintendo-btn px-3.5 py-2 rounded-xl bg-white text-slate-800 font-extrabold text-xs">🔥 Mejores Iniciales</button>
+              </div>
+            </div>
+
+            <!-- Podio de Campeones Top 3 -->
+            <div id="championPodium" class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-6 items-end">
+              <!-- Renderizado por JS -->
+            </div>
+          </div>
+
+          <!-- Tabla Clasificatoria Completa -->
+          <div class="bg-white rounded-2xl p-5 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B] space-y-3">
+            <h3 class="font-display font-bold text-xl text-slate-900">Clasificación Detallada de Liga</h3>
+            <div id="rankingTableList" class="space-y-3">
+              <!-- Renderizado por JS -->
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- PESTAÑA 3: ESTADIO VERSUS & SIMULADOR DE COMBATE                -->
+        <!-- =============================================================== -->
+        <section id="view-versus" class="tab-view hidden space-y-6">
+          <div class="bg-white rounded-2xl p-5 sm:p-7 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B] space-y-6">
+            <div class="text-center max-w-2xl mx-auto">
+              <span class="px-3 py-1 rounded-md bg-red-600 text-white border-2 border-slate-900 font-pixel text-[9px]">ESTADIO DE COMBATE</span>
+              <h2 class="font-display font-bold text-2xl sm:text-3xl text-slate-900 mt-2">Comparador Versus &amp; Simulador</h2>
+              <p class="text-sm font-semibold text-slate-600">Enfrenta a dos Pokémon, compara su hexágono de estadísticas y simula un combate por turnos.</p>
+            </div>
+
+            <!-- Selección de Luchadores -->
+            <div class="grid grid-cols-1 lg:grid-cols-11 gap-5 items-center">
+              <!-- Luchador 1 -->
+              <div class="lg:col-span-5 rounded-2xl p-4 bg-blue-50 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B] space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="px-2.5 py-0.5 rounded bg-blue-600 text-white font-extrabold text-xs">ENTRENADOR AZUL</span>
+                  <span id="vs1BstTag" class="font-display font-bold text-sm text-blue-900">BST: 680</span>
+                </div>
+                <select id="vsPick1" onchange="updateVersusArena()" class="w-full px-3 py-2.5 rounded-xl bg-white border-2 border-slate-900 font-extrabold text-sm text-slate-900 outline-none"></select>
+                <div id="vsPreview1" class="flex flex-col items-center text-center pt-1"></div>
+              </div>
+
+              <!-- Centro VS -->
+              <div class="lg:col-span-1 flex flex-col items-center justify-center gap-2">
+                <div class="w-14 h-14 rounded-2xl bg-amber-300 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B] flex items-center justify-center font-pixel text-sm text-slate-900">
+                  VS
+                </div>
+                <button onclick="swapVersusPicks()" class="text-xs font-extrabold text-blue-700 hover:underline">⇄ Cambiar</button>
+              </div>
+
+              <!-- Luchador 2 -->
+              <div class="lg:col-span-5 rounded-2xl p-4 bg-red-50 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B] space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="px-2.5 py-0.5 rounded bg-red-600 text-white font-extrabold text-xs">ENTRENADOR ROJO</span>
+                  <span id="vs2BstTag" class="font-display font-bold text-sm text-red-900">BST: 680</span>
+                </div>
+                <select id="vsPick2" onchange="updateVersusArena()" class="w-full px-3 py-2.5 rounded-xl bg-white border-2 border-slate-900 font-extrabold text-sm text-slate-900 outline-none"></select>
+                <div id="vsPreview2" class="flex flex-col items-center text-center pt-1"></div>
+              </div>
+            </div>
+
+            <!-- Gráfico Radar + Barras + Simulador -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-4 border-t-2 border-slate-200 items-center">
+              <!-- Radar SVG -->
+              <div class="lg:col-span-5 bg-slate-50 rounded-2xl p-4 border-2 border-slate-900 flex flex-col items-center">
+                <span class="font-display font-bold text-sm text-slate-800 mb-1">Gráfico Hexagonal de Atributos</span>
+                <div id="vsRadarSvg" class="w-full max-w-[290px] aspect-square"></div>
+                <div class="flex items-center gap-5 text-xs font-extrabold mt-1">
+                  <span class="flex items-center gap-1.5 text-blue-700"><span class="w-3 h-3 rounded-sm bg-blue-500 border border-slate-900"></span> <span id="vsLegend1">A</span></span>
+                  <span class="flex items-center gap-1.5 text-red-700"><span class="w-3 h-3 rounded-sm bg-red-500 border border-slate-900"></span> <span id="vsLegend2">B</span></span>
+                </div>
+              </div>
+
+              <!-- Barras Comparativas y Botón Simular -->
+              <div class="lg:col-span-7 space-y-4">
+                <div id="vsStatBars" class="space-y-2.5"></div>
+
+                <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                  <button id="battleBtn" onclick="simulateQuickBattle()" class="nintendo-btn px-5 py-3 rounded-xl bg-amber-300 hover:bg-amber-400 text-slate-900 font-display font-bold text-sm flex items-center gap-2">
+                    ⚡ Combatir (Nivel 50)
+                  </button>
+                  <span id="vsAdvantageChip" class="text-xs font-extrabold px-3 py-1.5 rounded-xl bg-slate-100 border-2 border-slate-900 text-slate-800"></span>
+                </div>
+
+                <!-- Campo de batalla animado -->
+                <div id="battleField" class="hidden rounded-2xl border-3 border-slate-900 overflow-hidden" style="background: linear-gradient(180deg, #BAE6FD 0%, #E0F2FE 58%, #86EFAC 58%, #4ADE80 100%);">
+                  <div class="grid grid-cols-2 gap-3 p-3 sm:p-4">
+                    <div class="flex flex-col items-center">
+                      <div class="w-full gba-dialog rounded-xl px-3 py-2">
+                        <div class="flex justify-between text-xs font-extrabold"><span id="bfName1" class="text-blue-700">—</span><span class="text-slate-500">Nv. 50</span></div>
+                        <div class="w-full h-2.5 bg-slate-200 rounded-full border border-slate-900 overflow-hidden mt-1"><div id="bfHp1" class="hp-fill h-full rounded-full" style="width:100%; background:#22C55E"></div></div>
+                        <div id="bfHpText1" class="text-[10px] font-extrabold text-right text-slate-600 mt-0.5">0/0 PS</div>
+                      </div>
+                      <div class="-scale-x-100 mt-2"><img id="bfImg1" src="" alt="" class="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_6px_0_rgba(15,23,42,0.25)]" /></div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                      <div class="w-full gba-dialog rounded-xl px-3 py-2">
+                        <div class="flex justify-between text-xs font-extrabold"><span id="bfName2" class="text-red-700">—</span><span class="text-slate-500">Nv. 50</span></div>
+                        <div class="w-full h-2.5 bg-slate-200 rounded-full border border-slate-900 overflow-hidden mt-1"><div id="bfHp2" class="hp-fill h-full rounded-full" style="width:100%; background:#22C55E"></div></div>
+                        <div id="bfHpText2" class="text-[10px] font-extrabold text-right text-slate-600 mt-0.5">0/0 PS</div>
+                      </div>
+                      <div class="mt-2"><img id="bfImg2" src="" alt="" class="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_6px_0_rgba(15,23,42,0.25)]" /></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Consola de Combate GBA -->
+                <div id="battleLogBox" class="gba-dialog rounded-xl p-4 text-xs sm:text-sm font-bold text-slate-800 space-y-1.5 max-h-56 overflow-y-auto">
+                  <p class="font-pixel text-[10px] text-blue-700">▶ CONSOLA DE COMBATE LISTA</p>
+                  <p>Pulsa "Combatir" para ver un combate por turnos a nivel 50: velocidad, STAB, efectividad de tipos, golpes críticos y variación de daño.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- PESTAÑA 4: CALCULADORA DE TABLA DE TIPOS                        -->
+        <!-- =============================================================== -->
+        <section id="view-types" class="tab-view hidden space-y-6">
+          <div class="bg-white rounded-2xl p-5 sm:p-7 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B] space-y-6">
+            <div>
+              <span class="px-2.5 py-1 rounded-md bg-emerald-400 border-2 border-slate-900 font-pixel text-[9px] text-slate-900">LABORATORIO ELEMENTAL</span>
+              <h2 class="font-display font-bold text-2xl sm:text-3xl text-slate-900 mt-2">Calculadora de Debilidades y Resistencias</h2>
+              <p class="text-sm font-semibold text-slate-600">Elige uno o dos tipos defensores para descubrir qué ataques le hacen daño crítico (x4, x2) o cuáles resiste.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="bg-slate-50 rounded-2xl p-4 border-2 border-slate-900 space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="font-extrabold text-xs uppercase text-blue-700">1. Tipo Primario</span>
+                  <span id="calcActiveCombo" class="px-2.5 py-0.5 rounded-lg bg-slate-900 text-amber-300 font-extrabold text-xs">Dragón / Tierra</span>
+                </div>
+                <div id="calcGrid1" class="flex flex-wrap gap-1.5"></div>
+              </div>
+
+              <div class="bg-slate-50 rounded-2xl p-4 border-2 border-slate-900 space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <span class="font-extrabold text-xs uppercase text-purple-700">2. Tipo Secundario (Opcional)</span>
+                  <button onclick="setCalcType(2, null)" class="text-xs font-extrabold text-red-600 hover:underline">Quitar segundo tipo</button>
+                </div>
+                <div id="calcGrid2" class="flex flex-wrap gap-1.5"></div>
+              </div>
+            </div>
+
+            <!-- Bloques de Multiplicadores -->
+            <div id="calcResultsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <!-- Renderizado por JS -->
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- PESTAÑA 4B: CONSTRUCTOR DE EQUIPO                               -->
+        <!-- =============================================================== -->
+        <section id="view-team" class="tab-view hidden space-y-6">
+          <div class="bg-white rounded-2xl p-5 sm:p-7 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B] space-y-5">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+              <div>
+                <span class="px-2.5 py-1 rounded-md bg-pink-300 border-2 border-slate-900 font-pixel text-[9px] text-slate-900">CENTRO POKÉMON</span>
+                <h2 class="font-display font-bold text-2xl sm:text-3xl text-slate-900 mt-2">Constructor de Equipo</h2>
+                <p class="text-sm font-semibold text-slate-600">Forma tu equipo de 6 y descubre a qué tipos es vulnerable antes de ir a la Liga. Se guarda en este navegador.</p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button onclick="randomTeam()" class="nintendo-btn px-3.5 py-2 rounded-xl bg-amber-300 text-slate-900 font-extrabold text-xs">🎲 Equipo aleatorio</button>
+                <button onclick="clearTeam()" class="nintendo-btn px-3.5 py-2 rounded-xl bg-white text-red-600 font-extrabold text-xs">🗑️ Vaciar</button>
+              </div>
+            </div>
+
+            <div id="teamSlots" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3"></div>
+
+            <div class="flex flex-col sm:flex-row gap-2">
+              <select id="teamAddSelect" class="flex-1 px-3 py-2.5 rounded-xl bg-slate-100 border-2 border-slate-900 font-extrabold text-sm text-slate-900 outline-none"></select>
+              <button onclick="addFromSelect()" class="nintendo-btn px-5 py-2.5 rounded-xl bg-emerald-300 text-slate-900 font-display font-bold text-sm">➕ Añadir al equipo</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-8 bg-white rounded-2xl p-5 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B] space-y-3">
+              <div>
+                <h3 class="font-display font-bold text-xl text-slate-900">Cobertura Defensiva</h3>
+                <p class="text-xs font-semibold text-slate-600">Para cada tipo de ataque: qué miembros reciben daño doble (o más) y cuántos lo resisten.</p>
+              </div>
+              <div id="teamCoverage" class="space-y-1.5"></div>
+            </div>
+            <div class="lg:col-span-4 bg-white rounded-2xl p-5 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B] space-y-3 self-start">
+              <h3 class="font-display font-bold text-xl text-slate-900">Informe del Profesor</h3>
+              <div id="teamReport" class="space-y-3 text-sm font-semibold text-slate-700"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- PESTAÑA 5: MINIJUEGO "¿QUIÉN ES ESE POKÉMON?"                   -->
+        <!-- =============================================================== -->
+        <section id="view-quiz" class="tab-view hidden space-y-6">
+          <div class="bg-white rounded-2xl p-5 sm:p-7 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B]">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-7 items-center">
+              
+              <!-- Pantalla Azul Clásica del Anime -->
+              <div class="lg:col-span-6 whos-that-bg rounded-2xl p-6 flex flex-col items-center justify-center min-h-[310px] relative overflow-hidden">
+                <span class="font-pixel text-xs sm:text-sm text-amber-300 drop-shadow-[2px_2px_0_#0F172A] mb-3 text-center">
+                  ¿QUIÉN ES ESE POKÉMON?
+                </span>
+                <img id="quizSprite" src="" alt="Silueta Pokémon" class="w-48 h-48 sm:w-56 sm:h-56 object-contain silhouette-img" />
+                <div id="quizHintPill" class="mt-3 px-3 py-1 rounded-full bg-slate-900/85 text-amber-300 font-extrabold text-xs border border-amber-300/50">
+                  Cargando pista...
+                </div>
+              </div>
+
+              <!-- Panel de Opciones estilo GBA -->
+              <div class="lg:col-span-6 space-y-5">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <span class="px-2.5 py-1 rounded bg-blue-600 text-white font-pixel text-[9px] border-2 border-slate-900">DESAFÍO ANIME</span>
+                    <h2 class="font-display font-bold text-2xl text-slate-900 mt-2">Demuestra tu nivel de Maestro</h2>
+                  </div>
+                  <div class="flex gap-2">
+                    <div class="px-3 py-2 rounded-xl bg-amber-100 border-2 border-slate-900 text-center">
+                      <span class="block text-[10px] font-extrabold text-slate-600">RACHA</span>
+                      <span id="streakNow" class="font-display font-bold text-xl text-slate-900">0</span>
+                    </div>
+                    <div class="px-3 py-2 rounded-xl bg-emerald-100 border-2 border-slate-900 text-center">
+                      <span class="block text-[10px] font-extrabold text-slate-600">RÉCORD</span>
+                      <span id="streakMax" class="font-display font-bold text-xl text-emerald-800">0</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="quizDialog" class="gba-dialog rounded-xl p-3.5 text-sm font-bold text-slate-800">
+                  ¡Un Pokémon salvaje apareció en el escáner! Elige su nombre correcto.
+                </div>
+
+                <div id="quizButtonsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <!-- 4 botones GBA -->
+                </div>
+
+                <div>
+                  <button id="nextQuizButton" onclick="loadNewQuizRound()" class="hidden nintendo-btn w-full sm:w-auto px-6 py-3 rounded-xl bg-amber-300 text-slate-900 font-display font-bold text-sm">
+                    Siguiente Silueta ▶
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL DE FICHA DETALLADA (CON MODO SHINY, EVOLUCIONES Y SET TORNEO)   -->
+  <!-- ===================================================================== -->
+
+  <footer class="max-w-7xl mx-auto mt-8 mb-2 px-2 text-center space-y-1">
+    <p class="font-display font-bold text-white drop-shadow-[2px_2px_0_#1E293B]">Pokémon't · PokéDex OS</p>
+    <p class="text-xs font-bold text-white/85">Atajos: <kbd class="px-1.5 rounded bg-slate-900/40">/</kbd> buscar · <kbd class="px-1.5 rounded bg-slate-900/40">← →</kbd> navegar fichas · <kbd class="px-1.5 rounded bg-slate-900/40">Esc</kbd> cerrar</p>
+    <p class="text-[11px] font-semibold text-white/70">Página fan sin ánimo de lucro, no oficial. Pokémon y sus personajes son marcas de Nintendo, Creatures y Game Freak. Imágenes: PokeAPI.</p>
+  </footer>
+
+  <div id="toast" role="status" aria-live="polite" class="toast-hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-xl bg-slate-900 text-amber-300 font-extrabold text-sm border-2 border-white/30 shadow-[0_4px_0_#0F172A]"></div>
+
+  <!-- ===================================================================== -->
+  <!-- ===================================================================== -->
+  <div id="detailModal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-5 bg-slate-950/75 backdrop-blur-sm">
+    <div class="bg-white w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-3xl border-4 border-slate-900 shadow-[0_12px_0_#1E293B] relative">
+      <!-- Barra superior del Modal -->
+      <div class="sticky top-0 z-20 flex items-center justify-between px-5 py-3.5 bg-slate-900 text-white border-b-4 border-slate-900">
+        <div class="flex items-center gap-2.5">
+          <span class="w-3 h-3 rounded-full bg-red-500"></span>
+          <span class="w-3 h-3 rounded-full bg-amber-400"></span>
+          <span class="w-3 h-3 rounded-full bg-emerald-400"></span>
+          <span id="modalHeaderTitle" class="font-pixel text-[10px] sm:text-xs text-amber-300 ml-1">FICHA POKÉDEX</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button onclick="navigateModal(-1)" title="Anterior (←)" class="px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-extrabold text-xs border-2 border-white/30">◀</button>
+          <button onclick="navigateModal(1)" title="Siguiente (→)" class="px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-extrabold text-xs border-2 border-white/30">▶</button>
+          <button onclick="closeDetailModal()" title="Cerrar (Esc)" class="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs border-2 border-white/30">
+            ✕ CERRAR
+          </button>
+        </div>
+      </div>
+
+      <div id="detailModalContent" class="p-5 sm:p-7">
+        <!-- Rellenado dinámicamente -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. COLORES OFICIALES DE LOS 18 TIPOS POKÉMON
+    // =========================================================================
+    const POKEMON_TYPES = {
+      'Normal':    { color: '#A8A77A', light: '#F4F4EC', text: '#1E293B' },
+      'Fuego':     { color: '#EE8130', light: '#FFF1E6', text: '#FFFFFF' },
+      'Agua':      { color: '#6390F0', light: '#EBF2FF', text: '#FFFFFF' },
+      'Eléctrico': { color: '#F7D02C', light: '#FEF9C3', text: '#1E293B' },
+      'Planta':    { color: '#7AC74C', light: '#ECFCCB', text: '#1E293B' },
+      'Hielo':     { color: '#96D9D6', light: '#E0F7F6', text: '#1E293B' },
+      'Lucha':     { color: '#C22E28', light: '#FEE2E2', text: '#FFFFFF' },
+      'Veneno':    { color: '#A33EA1', light: '#F5E6F5', text: '#FFFFFF' },
+      'Tierra':    { color: '#E2BF65', light: '#FEF6E0', text: '#1E293B' },
+      'Volador':   { color: '#A98FF3', light: '#F1ECFE', text: '#1E293B' },
+      'Psíquico':  { color: '#F95587', light: '#FFE4EC', text: '#FFFFFF' },
+      'Bicho':     { color: '#A6B91A', light: '#F3F7D4', text: '#1E293B' },
+      'Roca':      { color: '#B6A136', light: '#F6F2DF', text: '#FFFFFF' },
+      'Fantasma':  { color: '#735797', light: '#EDE8F5', text: '#FFFFFF' },
+      'Dragón':    { color: '#6F35FC', light: '#EDE5FF', text: '#FFFFFF' },
+      'Siniestro': { color: '#705746', light: '#EFECE9', text: '#FFFFFF' },
+      'Acero':     { color: '#B7B7CE', light: '#F1F1F7', text: '#1E293B' },
+      'Hada':      { color: '#D685AD', light: '#FCEBF3', text: '#1E293B' }
+    };
+
+    const TYPE_LIST = Object.keys(POKEMON_TYPES);
+
+    // Tabla de efectividad oficial
+    const EFFECTIVENESS = {
+      'Normal':    { 'Roca': 0.5, 'Fantasma': 0, 'Acero': 0.5 },
+      'Fuego':     { 'Fuego': 0.5, 'Agua': 0.5, 'Planta': 2, 'Hielo': 2, 'Bicho': 2, 'Roca': 0.5, 'Dragón': 0.5, 'Acero': 2 },
+      'Agua':      { 'Fuego': 2, 'Agua': 0.5, 'Planta': 0.5, 'Tierra': 2, 'Roca': 2, 'Dragón': 0.5 },
+      'Eléctrico': { 'Agua': 2, 'Eléctrico': 0.5, 'Planta': 0.5, 'Tierra': 0, 'Volador': 2, 'Dragón': 0.5 },
+      'Planta':    { 'Fuego': 0.5, 'Agua': 2, 'Planta': 0.5, 'Veneno': 0.5, 'Tierra': 2, 'Volador': 0.5, 'Bicho': 0.5, 'Roca': 2, 'Dragón': 0.5, 'Acero': 0.5 },
+      'Hielo':     { 'Fuego': 0.5, 'Agua': 0.5, 'Planta': 2, 'Hielo': 0.5, 'Tierra': 2, 'Volador': 2, 'Dragón': 2, 'Acero': 0.5 },
+      'Lucha':     { 'Normal': 2, 'Hielo': 2, 'Veneno': 0.5, 'Volador': 0.5, 'Psíquico': 0.5, 'Bicho': 0.5, 'Roca': 2, 'Fantasma': 0, 'Siniestro': 2, 'Acero': 2, 'Hada': 0.5 },
+      'Veneno':    { 'Planta': 2, 'Veneno': 0.5, 'Tierra': 0.5, 'Roca': 0.5, 'Fantasma': 0.5, 'Acero': 0, 'Hada': 2 },
+      'Tierra':    { 'Fuego': 2, 'Eléctrico': 2, 'Planta': 0.5, 'Veneno': 2, 'Volador': 0, 'Bicho': 0.5, 'Roca': 2, 'Acero': 2 },
+      'Volador':   { 'Eléctrico': 0.5, 'Planta': 2, 'Lucha': 2, 'Bicho': 2, 'Roca': 0.5, 'Acero': 0.5 },
+      'Psíquico':  { 'Lucha': 2, 'Veneno': 2, 'Psíquico': 0.5, 'Siniestro': 0, 'Acero': 0.5 },
+      'Bicho':     { 'Fuego': 0.5, 'Planta': 2, 'Lucha': 0.5, 'Veneno': 0.5, 'Volador': 0.5, 'Psíquico': 2, 'Fantasma': 0.5, 'Siniestro': 2, 'Acero': 0.5, 'Hada': 0.5 },
+      'Roca':      { 'Fuego': 2, 'Hielo': 2, 'Lucha': 0.5, 'Tierra': 0.5, 'Volador': 2, 'Bicho': 2, 'Acero': 0.5 },
+      'Fantasma':  { 'Normal': 0, 'Psíquico': 2, 'Fantasma': 2, 'Siniestro': 0.5 },
+      'Dragón':    { 'Dragón': 2, 'Acero': 0.5, 'Hada': 0 },
+      'Siniestro': { 'Lucha': 0.5, 'Psíquico': 2, 'Fantasma': 2, 'Siniestro': 0.5, 'Hada': 0.5 },
+      'Acero':     { 'Fuego': 0.5, 'Agua': 0.5, 'Eléctrico': 0.5, 'Hielo': 2, 'Roca': 2, 'Acero': 0.5, 'Hada': 2 },
+      'Hada':      { 'Fuego': 0.5, 'Lucha': 2, 'Veneno': 0.5, 'Dragón': 2, 'Siniestro': 2, 'Acero': 0.5 }
+    };
+
+    const artworkNormal = (id) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
+    const artworkShiny  = (id) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${id}.png`;
+
+    // =========================================================================
+    // 2. FICHAS DESTACADAS: 37 POKÉMON CON SET COMPETITIVO Y NOTAS PROPIAS
+    //    (se fusionan con los datos de PokeAPI y sirven de respaldo sin conexión)
+    // =========================================================================
+    const CURATED = [
+      {
+        id: 3, name: "Venusaur", gen: 1, types: ["Planta", "Veneno"],
+        stats: { hp: 80, atk: 82, def: 83, spa: 100, spd: 100, spe: 80 },
+        abilities: ["Espesura", "Clorofila (HO)"], tier: "UU / Sol VGC", tags: ["starter"],
+        height: "2.0 m", weight: "100.0 kg",
+        evoChain: [{ id: 1, name: "Bulbasaur" }, { id: 2, name: "Ivysaur" }, { id: 3, name: "Venusaur" }],
+        dexEntry: "La planta florece cuando absorbe energía solar. Ésta le obliga a buscar siempre la luz del sol.",
+        metaNote: "Con Clorofila bajo el sol duplica su velocidad y duerme rivales con Somnífero antes de barrer con Gigadrenado.",
+        build: { nature: "Modesta (+At.Esp / -Atq)", item: "Vidasfera", moves: ["Gigadrenado", "Bomba Lodo", "Tierra Viva", "Somnífero"] }
+      },
+      {
+        id: 6, name: "Charizard", gen: 1, types: ["Fuego", "Volador"],
+        stats: { hp: 78, atk: 84, def: 78, spa: 109, spd: 85, spe: 100 },
+        abilities: ["Mar Llamas", "Poder Solar (HO)"], tier: "ZU / Uber (Mega)", tags: ["starter"],
+        height: "1.7 m", weight: "90.5 kg",
+        evoChain: [{ id: 4, name: "Charmander" }, { id: 5, name: "Charmeleon" }, { id: 6, name: "Charizard" }],
+        dexEntry: "Escupe un fuego tan caliente que funde las rocas. Causa incendios forestales sin querer.",
+        metaNote: "El inicial más famoso del mundo; bajo el sol con Poder Solar o con sus Megaevoluciones X/Y alcanza daño colosal.",
+        build: { nature: "Miedosa (+Vel / -Atq)", item: "Botas Gruesas", moves: ["Lanzallamas", "Tajo Aéreo", "Rayo Solar", "Respiro"] }
+      },
+      {
+        id: 9, name: "Blastoise", gen: 1, types: ["Agua"],
+        stats: { hp: 79, atk: 83, def: 100, spa: 85, spd: 105, spe: 78 },
+        abilities: ["Torrente", "Cura Lluvia (HO)"], tier: "RU / UU", tags: ["starter"],
+        height: "1.6 m", weight: "85.5 kg",
+        evoChain: [{ id: 7, name: "Squirtle" }, { id: 8, name: "Wartortle" }, { id: 9, name: "Blastoise" }],
+        dexEntry: "Para acabar con su enemigo, lo aplasta con el peso de su cuerpo. En momentos de apuro, se esconde en el caparazón.",
+        metaNote: "Tras usar Rompecoraza duplica su Ataque Especial y Velocidad para arrasar con Hidrobomba y Rayo Hielo.",
+        build: { nature: "Modesta (+At.Esp / -Atq)", item: "Hierba Blanca", moves: ["Rompecoraza", "Surf", "Rayo Hielo", "Esfera Aural"] }
+      },
+      {
+        id: 25, name: "Pikachu", gen: 1, types: ["Eléctrico"],
+        stats: { hp: 35, atk: 55, def: 40, spa: 50, spd: 50, spe: 90 },
+        abilities: ["Elec. Estática", "Pararrayos (HO)"], tier: "Mascota Oficial", tags: ["starter"],
+        height: "0.4 m", weight: "6.0 kg",
+        evoChain: [{ id: 172, name: "Pichu" }, { id: 25, name: "Pikachu" }, { id: 26, name: "Raichu" }],
+        dexEntry: "Cuando se enfada, este Pokémon descarga la energía que almacena en el interior de las bolsas de las mejillas.",
+        metaNote: "Con el objeto exclusivo Bolaluminosa duplica sus dos estadísticas ofensivas, golpeando más fuerte que muchos legendarios.",
+        build: { nature: "Alegre (+Vel / -At.Esp)", item: "Bolaluminosa", moves: ["Placaje Eléctrico", "Sorpresa", "Velocidad Extrema", "Cola Férrea"] }
+      },
+      {
+        id: 59, name: "Arcanine", gen: 1, types: ["Fuego"],
+        stats: { hp: 90, atk: 110, def: 80, spa: 100, spd: 80, spe: 95 },
+        abilities: ["Intimidación", "Absorbe Fuego", "Justiciero (HO)"], tier: "VGC Clásico", tags: ["competitive"],
+        height: "1.9 m", weight: "155.0 kg",
+        evoChain: [{ id: 58, name: "Growlithe" }, { id: 59, name: "Arcanine" }],
+        dexEntry: "Un Pokémon admirado desde la antigüedad por su belleza. Corre ágilmente como si tuviera alas.",
+        metaNote: "Pilar histórico en torneos VGC gracias a Intimidación, Fuego Fatuo y Velocidad Extrema.",
+        build: { nature: "Firme (+Atq / -At.Esp)", item: "Baya Zidra", moves: ["Envite Ígneo", "Velocidad Extrema", "Fuego Fatuo", "Protección"] }
+      },
+      {
+        id: 65, name: "Alakazam", gen: 1, types: ["Psíquico"],
+        stats: { hp: 55, atk: 50, def: 45, spa: 135, spd: 95, spe: 120 },
+        abilities: ["Sincronía", "Foco Interno", "Muro Mágico (HO)"], tier: "UU / OU Histórico", tags: ["competitive"],
+        height: "1.5 m", weight: "48.0 kg",
+        evoChain: [{ id: 63, name: "Abra" }, { id: 64, name: "Kadabra" }, { id: 65, name: "Alakazam" }],
+        dexEntry: "Su cerebro puede ganar al de un ordenador de alto rendimiento. Tiene un cociente intelectual de 5000.",
+        metaNote: "Con Muro Mágico no recibe daño de Vidasfera ni de Trampa Rocas, actuando como un cañón psíquico veloz.",
+        build: { nature: "Miedosa (+Vel / -Atq)", item: "Vidasfera", moves: ["Psíquico", "Bola Sombra", "Onda Certera", "Maquinación"] }
+      },
+      {
+        id: 68, name: "Machamp", gen: 1, types: ["Lucha"],
+        stats: { hp: 90, atk: 130, def: 80, spa: 65, spd: 85, spe: 55 },
+        abilities: ["Agallas", "Indefenso", "Impasible (HO)"], tier: "RU", tags: [],
+        height: "1.6 m", weight: "130.0 kg",
+        evoChain: [{ id: 66, name: "Machop" }, { id: 67, name: "Machoke" }, { id: 68, name: "Machamp" }],
+        dexEntry: "Mueve sus cuatro brazos a tal velocidad que resulta imposible verlos. Puede dar 1000 golpes en dos segundos.",
+        metaNote: "Indefenso garantiza que Puño Dinámico (100% confusión) jamás falle, incluso contra rivales volando.",
+        build: { nature: "Firme (+Atq / -At.Esp)", item: "Chaleco Asalto", moves: ["Puño Dinámico", "Desarme", "Puño Hielo", "Puño Bala"] }
+      },
+      {
+        id: 94, name: "Gengar", gen: 1, types: ["Fantasma", "Veneno"],
+        stats: { hp: 60, atk: 65, def: 60, spa: 130, spd: 75, spe: 110 },
+        abilities: ["Cuerpo Maldito"], tier: "RU / Uber (Mega)", tags: ["competitive"],
+        height: "1.5 m", weight: "40.5 kg",
+        evoChain: [{ id: 92, name: "Gastly" }, { id: 93, name: "Haunter" }, { id: 94, name: "Gengar" }],
+        dexEntry: "Para quitarle la vida a su presa, se desliza en su sombra y espera su oportunidad en silencio.",
+        metaNote: "Uno de los pocos Pokémon presentes en lo más alto desde 1996 gracias a su velocidad 110 y cobertura Fantasma/Lucha.",
+        build: { nature: "Miedosa (+Vel / -Atq)", item: "Banda Focus", moves: ["Bola Sombra", "Bomba Lodo", "Onda Certera", "Mismo Destino"] }
+      },
+      {
+        id: 130, name: "Gyarados", gen: 1, types: ["Agua", "Volador"],
+        stats: { hp: 95, atk: 125, def: 79, spa: 60, spd: 100, spe: 81 },
+        abilities: ["Intimidación", "Autoestima (HO)"], tier: "UU / VGC", tags: ["competitive"],
+        height: "6.5 m", weight: "235.0 kg",
+        evoChain: [{ id: 129, name: "Magikarp" }, { id: 130, name: "Gyarados" }],
+        dexEntry: "Cuando aparece, la violencia se desata. No se calma hasta que ha reducido todo a cenizas.",
+        metaNote: "La mayor evolución de la saga: pasa de Magikarp a un sweeper imparable con Danza Dragón y Autoestima.",
+        build: { nature: "Alegre (+Vel / -At.Esp)", item: "Restos", moves: ["Danza Dragón", "Cascada", "Terremoto", "Colmillo Hielo"] }
+      },
+      {
+        id: 143, name: "Snorlax", gen: 1, types: ["Normal"],
+        stats: { hp: 160, atk: 110, def: 65, spa: 65, spd: 110, spe: 30 },
+        abilities: ["Inmunidad", "Sebo", "Gula (HO)"], tier: "RU / Leyenda Gen II", tags: ["competitive"],
+        height: "2.1 m", weight: "460.0 kg",
+        evoChain: [{ id: 446, name: "Munchlax" }, { id: 143, name: "Snorlax" }],
+        dexEntry: "No se encuentra satisfecho hasta haber ingerido 400 kg de comida cada día. Cuando acaba de comer, se queda dormido.",
+        metaNote: "Con 160 de Salud base y Sebo aguanta golpes especiales como una fortaleza mientras se potencia con Maldición.",
+        build: { nature: "Cauta (+Def.Esp / -At.Esp)", item: "Restos", moves: ["Maldición", "Golpe Cuerpo", "Terremoto", "Descanso"] }
+      },
+      {
+        id: 149, name: "Dragonite", gen: 1, types: ["Dragón", "Volador"],
+        stats: { hp: 91, atk: 134, def: 95, spa: 100, spd: 100, spe: 80 },
+        abilities: ["Foco Interno", "Compensación (HO)"], tier: "OU / VGC", tags: ["pseudo", "competitive"],
+        height: "2.2 m", weight: "210.0 kg",
+        evoChain: [{ id: 147, name: "Dratini" }, { id: 148, name: "Dragonair" }, { id: 149, name: "Dragonite" }],
+        dexEntry: "Dicen que vive en algún lugar del mar y que vuela. Sin embargo, solo es un rumor.",
+        metaNote: "El pseudo-legendario original: Compensación reduce a la mitad el daño recibido con PS completos para asegurar Danza Dragón.",
+        build: { nature: "Firme (+Atq / -At.Esp)", item: "Botas Gruesas", moves: ["Danza Dragón", "Velocidad Extrema", "Terremoto", "Respiro"] }
+      },
+      {
+        id: 150, name: "Mewtwo", gen: 1, types: ["Psíquico"],
+        stats: { hp: 106, atk: 110, def: 90, spa: 154, spd: 90, spe: 130 },
+        abilities: ["Presión", "Nerviosismo (HO)"], tier: "Uber", tags: ["legendary"],
+        height: "2.0 m", weight: "122.0 kg",
+        evoChain: [{ id: 150, name: "Mewtwo" }],
+        dexEntry: "Fue creado por un científico tras años de horribles experimentos de ingeniería genética y recombinación de ADN.",
+        metaNote: "El jefe final clásico de Kanto: su ataque especial 154 y velocidad 130 siguen siendo temidos en Ubers.",
+        build: { nature: "Miedosa (+Vel / -Atq)", item: "Vidasfera", moves: ["Onda Mental", "Esfera Aural", "Rayo Hielo", "Paz Mental"] }
+      },
+      {
+        id: 151, name: "Mew", gen: 1, types: ["Psíquico"],
+        stats: { hp: 100, atk: 100, def: 100, spa: 100, spd: 100, spe: 100 },
+        abilities: ["Sincronía"], tier: "UU / Singular", tags: ["legendary"],
+        height: "0.4 m", weight: "4.0 kg",
+        evoChain: [{ id: 151, name: "Mew" }],
+        dexEntry: "Al microscopio puede observarse su pelaje corto, fino y delicado. Contiene el código genético de todos los Pokémon.",
+        metaNote: "Puede aprender absolutamente todas las MT y MO del juego, permitiéndole desempeñar cualquier rol imaginable.",
+        build: { nature: "Alegre (+Vel / -At.Esp)", item: "Restos", moves: ["Trampa Rocas", "Fuego Fatuo", "Desarme", "Respiro"] }
+      },
+      {
+        id: 196, name: "Espeon", gen: 2, types: ["Psíquico"],
+        stats: { hp: 65, atk: 65, def: 60, spa: 130, spd: 95, spe: 110 },
+        abilities: ["Sincronía", "Espejo Mágico (HO)"], tier: "NU / RU", tags: [],
+        height: "0.9 m", weight: "26.5 kg",
+        evoChain: [{ id: 133, name: "Eevee" }, { id: 196, name: "Espeon" }],
+        dexEntry: "Al predecir el siguiente movimiento de su rival, la punta de su cola bífida tiembla ligeramente.",
+        metaNote: "Espejo Mágico devuelve automáticamente Trampa Rocas, Púas y movimientos de estado al rival.",
+        build: { nature: "Miedosa (+Vel / -Atq)", item: "Refleluz", moves: ["Psíquico", "Brillo Mágico", "Reflejo", "Pantalla de Luz"] }
+      },
+      {
+        id: 197, name: "Umbreon", gen: 2, types: ["Siniestro"],
+        stats: { hp: 95, atk: 65, def: 110, spa: 60, spd: 130, spe: 65 },
+        abilities: ["Sincronía", "Foco Interno (HO)"], tier: "RU / VGC Soporte", tags: ["competitive"],
+        height: "1.0 m", weight: "27.0 kg",
+        evoChain: [{ id: 133, name: "Eevee" }, { id: 197, name: "Umbreon" }],
+        dexEntry: "Cuando oscurece, los anillos de su cuerpo comienzan a brillar, infundiendo miedo en el corazón de cualquiera.",
+        metaNote: "Muralla casi indestructuble con Deseo y Juego Sucio que usa el propio ataque del rival en su contra.",
+        build: { nature: "Serena (+Def.Esp / -Atq)", item: "Restos", moves: ["Juego Sucio", "Deseo", "Protección", "Campana Cura"] }
+      },
+      {
+        id: 212, name: "Scizor", gen: 2, types: ["Bicho", "Acero"],
+        stats: { hp: 70, atk: 130, def: 100, spa: 55, spd: 80, spe: 65 },
+        abilities: ["Enjambre", "Experto (HO)"], tier: "UU / OU", tags: ["competitive"],
+        height: "1.8 m", weight: "118.0 kg",
+        evoChain: [{ id: 123, name: "Scyther" }, { id: 212, name: "Scizor" }],
+        dexEntry: "Tiene un cuerpo duro como el acero. Intimida a sus rivales levantando sus pinzas con dibujo de ojos.",
+        metaNote: "Con solo una debilidad (Fuego x4) y Experto potenciando Puño Bala de prioridad, es un clásico eterno.",
+        build: { nature: "Firme (+Atq / -At.Esp)", item: "Cinta Elegida", moves: ["Puño Bala", "Ida y Vuelta", "Desarme", "A Bocajarro"] }
+      },
+      {
+        id: 248, name: "Tyranitar", gen: 2, types: ["Roca", "Siniestro"],
+        stats: { hp: 100, atk: 134, def: 110, spa: 95, spd: 100, spe: 61 },
+        abilities: ["Chorro Arena", "Nerviosismo (HO)"], tier: "UU / Leyenda OU", tags: ["pseudo", "competitive"],
+        height: "2.0 m", weight: "202.0 kg",
+        evoChain: [{ id: 246, name: "Larvitar" }, { id: 247, name: "Pupitar" }, { id: 248, name: "Tyranitar" }],
+        dexEntry: "Su cuerpo es tan sólido que nada puede herirlo. Siempre está buscando rivales contra los que luchar.",
+        metaNote: "Invoca tormenta de arena al salir, multiplicando su Defensa Especial x1.5 y desgastando al equipo rival.",
+        build: { nature: "Firme (+Atq / -At.Esp)", item: "Chaleco Asalto", moves: ["Roca Afilada", "Triturar", "Terremoto", "Puño Hielo"] }
+      },
+      {
+        id: 249, name: "Lugia", gen: 2, types: ["Psíquico", "Volador"],
+        stats: { hp: 106, atk: 90, def: 130, spa: 90, spd: 154, spe: 110 },
+        abilities: ["Presión", "Compensación (HO)"], tier: "Uber", tags: ["legendary"],
+        height: "5.2 m", weight: "216.0 kg",
+        evoChain: [{ id: 249, name: "Lugia" }],
+        dexEntry: "Dicen que es el guardián de los mares. Se rumorea que fue visto en una noche de tormenta.",
+        metaNote: "Con 130 Defensa, 154 Defensa Especial y Compensación, es la muralla legendaria más difícil de derribar de un golpe.",
+        build: { nature: "Osada (+Def / -Atq)", item: "Botas Gruesas", moves: ["Aerochorro", "Recuperación", "Paz Mental", "Tierra Viva"] }
+      },
+      {
+        id: 250, name: "Ho-Oh", gen: 2, types: ["Fuego", "Volador"],
+        stats: { hp: 106, atk: 130, def: 90, spa: 110, spd: 154, spe: 90 },
+        abilities: ["Presión", "Regeneración (HO)"], tier: "Uber", tags: ["legendary"],
+        height: "3.8 m", weight: "199.0 kg",
+        evoChain: [{ id: 250, name: "Ho-Oh" }],
+        dexEntry: "Sus plumas brillan en siete colores según el ángulo desde el que les dé la luz. Se dice que trae felicidad.",
+        metaNote: "Regeneración cura un 33% de su salud cada vez que cambia de sitio, mientras Fuego Sagrado quema al 50% de probabilidad.",
+        build: { nature: "Agitada (+Def / -At.Esp)", item: "Botas Gruesas", moves: ["Fuego Sagrado", "Pájaro Osado", "Recuperación", "Remolino"] }
+      },
+      {
+        id: 257, name: "Blaziken", gen: 3, types: ["Fuego", "Lucha"],
+        stats: { hp: 80, atk: 120, def: 70, spa: 110, spd: 70, spe: 80 },
+        abilities: ["Mar Llamas", "Impulso (HO)"], tier: "UU / Uber (Mega)", tags: ["starter", "competitive"],
+        height: "1.9 m", weight: "52.0 kg",
+        evoChain: [{ id: 255, name: "Torchic" }, { id: 256, name: "Combusken" }, { id: 257, name: "Blaziken" }],
+        dexEntry: "Cuando se enfrenta a un rival duro, expulsa llamas por las muñecas. Sus fuertes patas le permiten saltar edificios.",
+        metaNote: "El primer inicial enviado a Ubers: su habilidad oculta Impulso sube su Velocidad al final de cada turno automáticamente.",
+        build: { nature: "Firme (+Atq / -At.Esp)", item: "Vidasfera", moves: ["Danza Espada", "Envite Ígneo", "A Bocajarro", "Protección"] }
+      },
+      {
+        id: 282, name: "Gardevoir", gen: 3, types: ["Psíquico", "Hada"],
+        stats: { hp: 68, atk: 65, def: 65, spa: 125, spd: 115, spe: 80 },
+        abilities: ["Sincronía", "Rastro", "Telepatía (HO)"], tier: "RU / UU (Mega)", tags: [],
+        height: "1.6 m", weight: "48.4 kg",
+        evoChain: [{ id: 280, name: "Ralts" }, { id: 281, name: "Kirlia" }, { id: 282, name: "Gardevoir" }],
+        dexEntry: "Tiene el poder de predecir el futuro. Cuando protege a su Entrenador se vuelve más fuerte que nunca.",
+        metaNote: "Su doble tipo Psíquico/Hada y Rastro le permiten robar habilidades útiles mientras golpea con Fuerza Lunar.",
+        build: { nature: "Miedosa (+Vel / -Atq)", item: "Pañuelo Elegido", moves: ["Fuerza Lunar", "Psicocarga", "Llama Embrujada", "Truco"] }
+      },
+      {
+        id: 373, name: "Salamence", gen: 3, types: ["Dragón", "Volador"],
+        stats: { hp: 95, atk: 135, def: 80, spa: 110, spd: 80, spe: 100 },
+        abilities: ["Intimidación", "Autoestima (HO)"], tier: "RU / Uber (Mega)", tags: ["pseudo"],
+        height: "1.5 m", weight: "102.6 kg",
+        evoChain: [{ id: 371, name: "Bagon" }, { id: 372, name: "Shelgon" }, { id: 373, name: "Salamence" }],
+        dexEntry: "Cumplió su sueño de toda la vida de tener alas gracias a un fuerte deseo que mutó sus células.",
+        metaNote: "Con Autoestima se vuelve imparable tras debilitar a un enemigo, y su Mega con Piel Celeste es legendaria.",
+        build: { nature: "Alegre (+Vel / -At.Esp)", item: "Botas Gruesas", moves: ["Danza Dragón", "Enfado", "Ala Bis", "Terremoto"] }
+      },
+      {
+        id: 376, name: "Metagross", gen: 3, types: ["Acero", "Psíquico"],
+        stats: { hp: 80, atk: 135, def: 130, spa: 95, spd: 90, spe: 70 },
+        abilities: ["Cuerpo Puro", "Metal Liviano (HO)"], tier: "UU / VGC", tags: ["pseudo", "competitive"],
+        height: "1.6 m", weight: "550.0 kg",
+        evoChain: [{ id: 374, name: "Beldum" }, { id: 375, name: "Metang" }, { id: 376, name: "Metagross" }],
+        dexEntry: "Metagross tiene cuatro cerebros en total que, combinados, pueden resolver cálculos difíciles más rápido que un superordenador.",
+        metaNote: "Junto a Tyranitar, de los pocos pseudo-legendarios sin tipo Dragón; Cuerpo Puro impide que le bajen las estadísticas.",
+        build: { nature: "Firme (+Atq / -At.Esp)", item: "Chaleco Asalto", moves: ["Puño Meteoro", "Psicocolmillo", "Terremoto", "Puño Bala"] }
+      },
+      {
+        id: 384, name: "Rayquaza", gen: 3, types: ["Dragón", "Volador"],
+        stats: { hp: 105, atk: 150, def: 90, spa: 150, spd: 90, spe: 95 },
+        abilities: ["Bucle Aire"], tier: "Uber / Anything Goes", tags: ["legendary"],
+        height: "7.0 m", weight: "206.5 kg",
+        evoChain: [{ id: 384, name: "Rayquaza" }],
+        dexEntry: "Vive en la capa de ozono, muy por encima de las nubes. Desde tierra nadie puede verlo.",
+        metaNote: "Bucle Aire anula todos los efectos del clima (Sol, Lluvia, Arena) y su Mega alcanza 780 de estadísticas base.",
+        build: { nature: "Alegre (+Vel / -At.Esp)", item: "Vidasfera", moves: ["Ascenso Draco", "Danza Dragón", "Velocidad Extrema", "Terremoto"] }
+      },
+      {
+        id: 392, name: "Infernape", gen: 4, types: ["Fuego", "Lucha"],
+        stats: { hp: 76, atk: 104, def: 71, spa: 104, spd: 71, spe: 108 },
+        abilities: ["Mar Llamas", "Puño Férreo (HO)"], tier: "NU / Clásico Sinnoh", tags: ["starter"],
+        height: "1.2 m", weight: "55.0 kg",
+        evoChain: [{ id: 390, name: "Chimchar" }, { id: 391, name: "Monferno" }, { id: 392, name: "Infernape" }],
+        dexEntry: "Su corona de fuego es indicativo de su naturaleza ígnea. Nadie le gana en velocidad.",
+        metaNote: "Atacante mixto ultrarrápido (108 Velocidad) con acceso a A Bocajarro, Envite Ígneo y Ultrapuño.",
+        build: { nature: "Alegre (+Vel / -At.Esp)", item: "Vidasfera", moves: ["Envite Ígneo", "A Bocajarro", "Ida y Vuelta", "Ultrapuño"] }
+      },
+      {
+        id: 445, name: "Garchomp", gen: 4, types: ["Dragón", "Tierra"],
+        stats: { hp: 108, atk: 130, def: 95, spa: 80, spd: 85, spe: 102 },
+        abilities: ["Velo Arena", "Piel Tosca (HO)"], tier: "OU / UU", tags: ["pseudo", "competitive"],
+        height: "1.9 m", weight: "95.0 kg",
+        evoChain: [{ id: 443, name: "Gible" }, { id: 444, name: "Gabite" }, { id: 445, name: "Garchomp" }],
+        dexEntry: "Vuela a velocidades comparables a las de un avión de combate. Nunca deja escapar a su presa.",
+        metaNote: "El terror de Cintia en Sinnoh: su Velocidad 102 supera por 2 puntos exactos a la barrera clásica de 100.",
+        build: { nature: "Alegre (+Vel / -At.Esp)", item: "Casco Dentado", moves: ["Terremoto", "Garra Dragón", "Danza Espada", "Trampa Rocas"] }
+      },
+      {
+        id: 448, name: "Lucario", gen: 4, types: ["Lucha", "Acero"],
+        stats: { hp: 70, atk: 110, def: 70, spa: 115, spd: 70, spe: 90 },
+        abilities: ["Impasible", "Foco Interno", "Justiciero (HO)"], tier: "NU / Uber (Mega)", tags: ["competitive"],
+        height: "1.2 m", weight: "54.0 kg",
+        evoChain: [{ id: 447, name: "Riolu" }, { id: 448, name: "Lucario" }],
+        dexEntry: "Puede sentir el aura de todas las cosas. Comprende el lenguaje humano.",
+        metaNote: "Versatilidad total: puede jugarse físico con Danza Espada + Velocidad Extrema o especial con Maquinación + Esfera Aural.",
+        build: { nature: "Alegre (+Vel / -At.Esp)", item: "Vidasfera", moves: ["Danza Espada", "A Bocajarro", "Puño Meteoro", "Velocidad Extrema"] }
+      },
+      {
+        id: 468, name: "Togekiss", gen: 4, types: ["Hada", "Volador"],
+        stats: { hp: 85, atk: 50, def: 95, spa: 120, spd: 115, spe: 80 },
+        abilities: ["Entusiasmo", "Dicha", "Afortunado (HO)"], tier: "RU / VGC", tags: ["competitive"],
+        height: "1.5 m", weight: "38.0 kg",
+        evoChain: [{ id: 175, name: "Togepi" }, { id: 176, name: "Togetic" }, { id: 468, name: "Togekiss" }],
+        dexEntry: "Nunca se deja ver en lugares donde hay conflictos o disputas. Últimamente apenas se deja ver.",
+        metaNote: "Con Dicha duplica la probabilidad de retroceso de Tajo Aéreo hasta el 60%, desesperando a rivales más lentos.",
+        build: { nature: "Miedosa (+Vel / -Atq)", item: "Restos", moves: ["Tajo Aéreo", "Brillo Mágico", "Onda Trueno", "Respiro"] }
+      },
+      {
+        id: 493, name: "Arceus", gen: 4, types: ["Normal"],
+        stats: { hp: 120, atk: 120, def: 120, spa: 120, spd: 120, spe: 120 },
+        abilities: ["Multitipo"], tier: "Uber / Dios Pokémon", tags: ["legendary"],
+        height: "3.2 m", weight: "320.0 kg",
+        evoChain: [{ id: 493, name: "Arceus" }],
+        dexEntry: "Según la mitología de Sinnoh, emergió de un huevo y dio forma a todo lo que existe en este mundo.",
+        metaNote: "120 en todas sus estadísticas (720 total) y capacidad de cambiar a cualquiera de los 18 tipos con sus Tablas.",
+        build: { nature: "Firme (+Atq / -At.Esp)", item: "Tabla Duende / Restos", moves: ["Danza Espada", "Velocidad Extrema", "Garra Umbría", "Recuperación"] }
+      },
+      {
+        id: 658, name: "Greninja", gen: 6, types: ["Agua", "Siniestro"],
+        stats: { hp: 72, atk: 95, def: 67, spa: 103, spd: 71, spe: 122 },
+        abilities: ["Torrente", "Mutatipo (HO)", "Fuerte Afecto"], tier: "UU / OU", tags: ["starter", "competitive"],
+        height: "1.5 m", weight: "40.0 kg",
+        evoChain: [{ id: 656, name: "Froakie" }, { id: 657, name: "Frogadier" }, { id: 658, name: "Greninja" }],
+        dexEntry: "Comprime el agua y crea estrellas ninja con las que ataca al enemigo. Cuando las hace girar a gran velocidad cortan en dos hasta el metal.",
+        metaNote: "Elegido Pokémon más popular del mundo; Mutatipo cambia su tipo al del ataque que va a usar para ganar STAB siempre.",
+        build: { nature: "Miedosa (+Vel / -Atq)", item: "Vidasfera", moves: ["Hidrobomba", "Pulso Umbrío", "Rayo Hielo", "Shuriken de Agua"] }
+      },
+      {
+        id: 700, name: "Sylveon", gen: 6, types: ["Hada"],
+        stats: { hp: 95, atk: 65, def: 65, spa: 110, spd: 130, spe: 60 },
+        abilities: ["Gran Encanto", "Piel Feérica (HO)"], tier: "NU / VGC", tags: ["competitive"],
+        height: "1.0 m", weight: "23.5 kg",
+        evoChain: [{ id: 133, name: "Eevee" }, { id: 700, name: "Sylveon" }],
+        dexEntry: "Sus apéndices en forma de cinta emiten ondas tranquilizadoras que neutralizan la hostilidad de sus rivales.",
+        metaNote: "Piel Feérica convierte Vozarrón en un ataque de tipo Hada con potencia extra que atraviesa Sustitutos.",
+        build: { nature: "Modesta (+At.Esp / -Atq)", item: "Gafas Elegidas", moves: ["Vozarrón", "Psicocarga", "Bola Sombra", "Ataque Rápido"] }
+      },
+      {
+        id: 778, name: "Mimikyu", gen: 7, types: ["Fantasma", "Hada"],
+        stats: { hp: 55, atk: 90, def: 80, spa: 50, spd: 105, spe: 96 },
+        abilities: ["Disfraz"], tier: "RU / VGC", tags: [],
+        height: "0.2 m", weight: "0.7 kg",
+        evoChain: [{ id: 778, name: "Mimikyu" }],
+        dexEntry: "Su verdadero aspecto es un completo misterio. Un investigador que miró bajo el saco murió del susto.",
+        metaNote: "Disfraz bloquea por completo el primer impacto recibido, regalando un turno gratuito para usar Danza Espada.",
+        build: { nature: "Alegre (+Vel / -At.Esp)", item: "Vidasfera", moves: ["Danza Espada", "Carantoña", "Garra Umbría", "Sombra Vil"] }
+      },
+      {
+        id: 815, name: "Cinderace", gen: 8, types: ["Fuego"],
+        stats: { hp: 80, atk: 116, def: 75, spa: 65, spd: 75, spe: 119 },
+        abilities: ["Mar Llamas", "Líbero (HO)"], tier: "OU", tags: ["starter", "competitive"],
+        height: "1.4 m", weight: "33.0 kg",
+        evoChain: [{ id: 813, name: "Scorbunny" }, { id: 814, name: "Raboot" }, { id: 815, name: "Cinderace" }],
+        dexEntry: "Convierte una piedra en un balón de fuego con sus pies y lanza tiros imparables llenos de efecto.",
+        metaNote: "Balón Ígneo (120 potencia) + Líbero + Cambio de Cancha lo convierten en uno de los iniciales más completos.",
+        build: { nature: "Alegre (+Vel / -At.Esp)", item: "Botas Gruesas", moves: ["Balón Ígneo", "Ida y Vuelta", "Patada Salto Alta", "Cambio de Cancha"] }
+      },
+      {
+        id: 823, name: "Corviknight", gen: 8, types: ["Volador", "Acero"],
+        stats: { hp: 98, atk: 87, def: 105, spa: 53, spd: 85, spe: 67 },
+        abilities: ["Presión", "Nerviosismo", "Coraza Reflejo (HO)"], tier: "OU", tags: ["competitive"],
+        height: "2.2 m", weight: "75.0 kg",
+        evoChain: [{ id: 821, name: "Rookidee" }, { id: 822, name: "Corvisquire" }, { id: 823, name: "Corviknight" }],
+        dexEntry: "No tiene rival en los cielos de Galar. El brillo negro acero de su plumaje intimida a cualquier adversario.",
+        metaNote: "El mejor tanque defensivo Volador/Acero moderno: limpia trampas con Despejar y devuelve bajadas de stats con Coraza Reflejo.",
+        build: { nature: "Agitada (+Def / -At.Esp)", item: "Casco Dentado", moves: ["Pájaro Osado", "Plancha Corporal", "Despejar", "Respiro"] }
+      },
+      {
+        id: 887, name: "Dragapult", gen: 8, types: ["Dragón", "Fantasma"],
+        stats: { hp: 88, atk: 120, def: 75, spa: 100, spd: 75, spe: 142 },
+        abilities: ["Cuerpo Puro", "Allanamiento", "Cuerpo Maldito (HO)"], tier: "OU", tags: ["pseudo", "competitive"],
+        height: "3.0 m", weight: "50.0 kg",
+        evoChain: [{ id: 885, name: "Dreepy" }, { id: 886, name: "Drakloak" }, { id: 887, name: "Dragapult" }],
+        dexEntry: "Cuando combate, dispara a los Dreepy que lleva en sus cuernos a velocidad supersónica.",
+        metaNote: "Con 142 de Velocidad base supera a casi todo el metajuego sin necesidad de Pañuelo Elegido.",
+        build: { nature: "Miedosa (+Vel / -Atq)", item: "Gafas Elegidas", moves: ["Bola Sombra", "Cometa Draco", "Lanzallamas", "Ida y Vuelta"] }
+      },
+      {
+        id: 1007, name: "Koraidon", gen: 9, types: ["Lucha", "Dragón"],
+        stats: { hp: 100, atk: 135, def: 115, spa: 85, spd: 100, spe: 135 },
+        abilities: ["Latido Orichalcum"], tier: "Uber / VGC", tags: ["legendary", "competitive"],
+        height: "2.5 m", weight: "303.0 kg",
+        evoChain: [{ id: 1007, name: "Koraidon" }],
+        dexEntry: "En los relatos antiguos figura como el Rey Alado, capaz de partir la tierra de un solo puñetazo.",
+        metaNote: "Activa el sol y potencia su Ataque un 33% automáticamente, haciendo que Envite Ígneo y Nitrocarga sean devastadores.",
+        build: { nature: "Alegre (+Vel / -At.Esp)", item: "Dado Trucado", moves: ["Nitrocarga", "A Bocajarro", "Ráfaga Escamas", "Danza Espada"] }
+      },
+      {
+        id: 1008, name: "Miraidon", gen: 9, types: ["Eléctrico", "Dragón"],
+        stats: { hp: 100, atk: 85, def: 100, spa: 135, spd: 115, spe: 135 },
+        abilities: ["Motor Hadrónico"], tier: "Uber / VGC", tags: ["legendary", "competitive"],
+        height: "3.5 m", weight: "240.0 kg",
+        evoChain: [{ id: 1008, name: "Miraidon" }],
+        dexEntry: "Conocido como Serpiente Férrea en el Libro Púrpura, sobrevuela el cielo generando rayos colosales.",
+        metaNote: "Motor Hadrónico activa Campo Eléctrico y sube su At. Esp. un 33%, disparando Electroderrape con potencia absurda.",
+        build: { nature: "Miedosa (+Vel / -Atq)", item: "Gafas Elegidas", moves: ["Electroderrape", "Cometa Draco", "Voltiocambio", "Brillo Mágico"] }
+      }
+    ];
+
+    const computeBst = (p) => p.stats.hp + p.stats.atk + p.stats.def + p.stats.spa + p.stats.spd + p.stats.spe;
+    CURATED.forEach(p => {
+      p.bst = computeBst(p);
+      p.featured = true;
+    });
+
+    // Pokédex activa: empieza con las fichas destacadas y se sustituye por la completa al cargar PokeAPI
+    let POKEDEX = CURATED;
+
+    // =========================================================================
+    // 2B. POKÉDEX NACIONAL COMPLETA DESDE POKEAPI (GraphQL)
+    // =========================================================================
+    const POKEAPI_GRAPHQL = 'https://graphql.pokeapi.co/v1beta2';
+    const DEX_CACHE_KEY = 'dex-v1';
+    const DEX_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 días
+    const LANG_ES = 7;
+
+    const TYPE_ES = {
+      normal: 'Normal', fire: 'Fuego', water: 'Agua', electric: 'Eléctrico', grass: 'Planta', ice: 'Hielo',
+      fighting: 'Lucha', poison: 'Veneno', ground: 'Tierra', flying: 'Volador', psychic: 'Psíquico', bug: 'Bicho',
+      rock: 'Roca', ghost: 'Fantasma', dragon: 'Dragón', dark: 'Siniestro', steel: 'Acero', fairy: 'Hada'
+    };
+    const STAT_KEYS = { 'hp': 'hp', 'attack': 'atk', 'defense': 'def', 'special-attack': 'spa', 'special-defense': 'spd', 'speed': 'spe' };
+
+    // Iniciales de las 9 generaciones (las 3 fases de cada uno) + Pikachu y Eevee
+    const STARTER_IDS = new Set([25, 133]);
+    [1, 152, 252, 387, 495, 650, 722, 810, 906].forEach(first => {
+      for (let i = 0; i < 9; i++) STARTER_IDS.add(first + i);
+    });
+    // Pseudo-legendarios (600 BST): Dragonite, Tyranitar, Salamence, Metagross, Garchomp, Hydreigon, Goodra, Kommo-o, Dragapult, Baxcalibur
+    const PSEUDO_IDS = new Set([149, 248, 373, 376, 445, 635, 706, 784, 887, 998]);
+
+    const DEX_QUERY = `query {
+      pokemon(where: {id: {_lte: 1025}}, order_by: {id: asc}) {
+        id name height weight
+        pokemontypes(order_by: {slot: asc}) { type { name } }
+        pokemonstats { base_stat stat { name } }
+        pokemonabilities(order_by: {slot: asc}) { is_hidden ability { name abilitynames(where: {language_id: {_eq: ${LANG_ES}}}) { name } } }
+        pokemonspecy {
+          generation_id is_legendary is_mythical evolution_chain_id
+          pokemonspeciesnames(where: {language_id: {_eq: ${LANG_ES}}}) { name genus }
+          pokemonspeciesflavortexts(where: {language_id: {_eq: ${LANG_ES}}}, limit: 1, order_by: {version_id: desc}) { flavor_text }
+        }
+      }
+    }`;
+
+    async function pokeApiQuery(query, timeoutMs = 25000) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        const res = await fetch(POKEAPI_GRAPHQL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+          signal: ctrl.signal
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        if (json.errors) throw new Error(json.errors[0].message);
+        return json.data;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+    const cleanText = (s) => s.replace(/­[\n\f]?/g, '').replace(/[\n\f\r]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+    function mapApiPokemon(raw) {
+      const species = raw.pokemonspecy || {};
+      const nameEs = (species.pokemonspeciesnames || [])[0];
+      const flavor = (species.pokemonspeciesflavortexts || [])[0];
+
+      const stats = {};
+      raw.pokemonstats.forEach(s => {
+        const key = STAT_KEYS[s.stat.name];
+        if (key) stats[key] = s.base_stat;
+      });
+
+      const abilities = [];
+      raw.pokemonabilities.forEach(a => {
+        const label = ((a.ability.abilitynames[0] || {}).name || capitalize(a.ability.name)) + (a.is_hidden ? ' (HO)' : '');
+        if (!abilities.includes(label)) abilities.push(label);
+      });
+
+      const legendary = species.is_legendary || species.is_mythical;
+      const tags = [];
+      if (STARTER_IDS.has(raw.id)) tags.push('starter');
+      if (PSEUDO_IDS.has(raw.id)) tags.push('pseudo');
+      if (legendary) tags.push('legendary');
+
+      return {
+        id: raw.id,
+        name: nameEs ? nameEs.name : capitalize(raw.name),
+        apiName: raw.name,
+        gen: species.generation_id,
+        types: raw.pokemontypes.map(t => TYPE_ES[t.type.name]).filter(Boolean),
+        stats,
+        abilities,
+        tags,
+        tier: species.is_mythical ? 'Singular' : (species.is_legendary ? 'Legendario' : (PSEUDO_IDS.has(raw.id) ? 'Pseudo-legendario' : 'Pokédex')),
+        height: (raw.height / 10).toFixed(1) + ' m',
+        weight: (raw.weight / 10).toFixed(1) + ' kg',
+        genus: nameEs ? nameEs.genus : '',
+        dexEntry: flavor ? cleanText(flavor.flavor_text) : 'Sin descripción disponible.',
+        evoChainId: species.evolution_chain_id
+      };
+    }
+
+    // Las fichas destacadas mantienen sus notas, set y tier; la API aporta género, cadena evolutiva y etiquetas
+    function mergeWithCurated(list) {
+      const curatedById = new Map(CURATED.map(c => [c.id, c]));
+      return list.map(p => {
+        const c = curatedById.get(p.id);
+        const merged = c
+          ? { ...p, ...c, genus: p.genus, evoChainId: p.evoChainId, tags: [...new Set([...p.tags, ...c.tags])] }
+          : { ...p };
+        merged.bst = computeBst(merged);
+        return merged;
+      });
+    }
+
+    function isValidEntry(p) {
+      return p.gen && p.types.length > 0 && ['hp', 'atk', 'def', 'spa', 'spd', 'spe'].every(k => typeof p.stats[k] === 'number');
+    }
+
+    async function loadFullPokedex() {
+      const cached = store.get(DEX_CACHE_KEY, null);
+      const hasCache = cached && Array.isArray(cached.data) && cached.data.length > 900;
+      if (hasCache && (Date.now() - cached.t) < DEX_CACHE_TTL) return { list: cached.data, source: 'cache' };
+
+      try {
+        const data = await pokeApiQuery(DEX_QUERY);
+        const list = data.pokemon.map(mapApiPokemon).filter(isValidEntry);
+        store.set(DEX_CACHE_KEY, { t: Date.now(), data: list });
+        return { list, source: 'api' };
+      } catch (e) {
+        console.warn('PokeAPI no disponible:', e);
+        if (hasCache) return { list: cached.data, source: 'stale' };
+        return { list: null, source: 'offline' };
+      }
+    }
+
+    function updateDataSourcePill(source, count) {
+      const labels = {
+        api: '🟢 Datos en vivo de PokeAPI',
+        cache: '🟢 PokeAPI (copia guardada)',
+        stale: '🟠 Sin conexión: última copia guardada',
+        offline: '🔴 Sin conexión: solo fichas destacadas'
+      };
+      document.getElementById('dataSourcePill').textContent = `${labels[source]} · ${count} Pokémon`;
+    }
+
+    // Cadena evolutiva bajo demanda (se pide al abrir una ficha y se guarda en memoria)
+    const evoCache = new Map();
+    async function fetchEvoChain(chainId) {
+      if (evoCache.has(chainId)) return evoCache.get(chainId);
+      const data = await pokeApiQuery(`query {
+        pokemonspecies(where: {evolution_chain_id: {_eq: ${Number(chainId)}}}, order_by: {order: asc}) {
+          id evolves_from_species_id
+          pokemonspeciesnames(where: {language_id: {_eq: ${LANG_ES}}}) { name }
+        }
+      }`, 15000);
+      const depth = {};
+      const species = data.pokemonspecies.map(s => {
+        depth[s.id] = s.evolves_from_species_id ? (depth[s.evolves_from_species_id] ?? 0) + 1 : 0;
+        return { id: s.id, name: (s.pokemonspeciesnames[0] || {}).name || ('#' + s.id), stage: depth[s.id] };
+      });
+      const stages = [];
+      species.forEach(s => (stages[s.stage] = stages[s.stage] || []).push(s));
+      const result = stages.filter(Boolean);
+      evoCache.set(chainId, result);
+      return result;
+    }
+
+    async function renderEvoChain(p) {
+      const box = document.getElementById('evoChainBox');
+      if (!box) return;
+      let stages;
+      try {
+        stages = p.evoChainId ? await fetchEvoChain(p.evoChainId) : null;
+      } catch (e) {
+        stages = null;
+      }
+      if (!stages) stages = (p.evoChain || [{ id: p.id, name: p.name }]).map(s => [s]);
+      if (currentModalId !== p.id) return; // el usuario ya abrió otra ficha
+
+      const item = (step) => {
+        const exists = POKEDEX.some(x => x.id === step.id);
+        return `<div ${exists ? `onclick="openDetailModal(${step.id})"` : ''} class="flex flex-col items-center p-2 rounded-xl border-2 ${step.id === p.id ? 'border-red-600 bg-amber-100' : 'border-slate-300 bg-white'} ${exists ? 'cursor-pointer hover:scale-105 transition-transform' : ''}">
+                  <img src="${artworkNormal(step.id)}" alt="${step.name}" class="w-14 h-14 object-contain" />
+                  <span class="text-[11px] font-extrabold text-slate-900 mt-1">${step.name}</span>
+                </div>`;
+      };
+      box.innerHTML = stages.length === 1 && stages[0].length === 1
+        ? `${item(stages[0][0])}<span class="text-xs font-bold text-slate-500">No evoluciona.</span>`
+        : stages.map(stage => `<div class="flex flex-wrap justify-center gap-2">${stage.map(item).join('')}</div>`).join('<span class="font-pixel text-xs text-slate-500">▶</span>');
+    }
+
+    // =========================================================================
+    // 3. ESTADO GLOBAL Y SINTETIZADOR DE SONIDO POKÉDEX (WEB AUDIO API)
+    // =========================================================================
+    // Guardado local (capturas, equipo, récord, tema, sonido). Si el navegador lo bloquea, la página funciona igual.
+    const store = {
+      get(key, fallback) {
+        try {
+          const raw = localStorage.getItem('pokemont:' + key);
+          return raw === null ? fallback : JSON.parse(raw);
+        } catch (e) { return fallback; }
+      },
+      set(key, value) {
+        try { localStorage.setItem('pokemont:' + key, JSON.stringify(value)); } catch (e) {}
+      }
+    };
+    const isKnownId = (id) => POKEDEX.some(p => p.id === id);
+
+    let soundEnabled = store.get('sound', true);
+    let activeType = 'all';
+    let showCapturedOnly = false;
+    // Se filtran contra la Pokédex real cuando termina de cargar (ver bootstrap)
+    let capturedIds = new Set(store.get('captured', [25, 6, 445, 384]));
+    let team = store.get('team', []).slice(0, 6);
+    let battleRun = 0;
+    let rankMode = 'bst';
+    let calcType1 = 'Dragón';
+    let calcType2 = 'Tierra';
+    let modalIsShiny = false;
+    let currentModalId = null;
+
+    // Quiz state
+    let quizTarget = null;
+    let streakNow = 0;
+    let streakMax = store.get('streakMax', 0);
+    let quizLocked = false;
+
+    // Un único AudioContext reutilizado (crear uno por pitido agota el límite del navegador)
+    let audioCtx = null;
+    function getAudioCtx() {
+      if (!audioCtx) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return null;
+        audioCtx = new Ctx();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function playDexBeep(freq = 580, duration = 0.08, type = 'square') {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioCtx();
+        if (!ctx) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(0.06, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playVictoryFanfare() {
+      if (!soundEnabled) return;
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((n, idx) => {
+        setTimeout(() => playDexBeep(n, 0.14, 'triangle'), idx * 95);
+      });
+    }
+
+    function applySoundButton() {
+      const btn = document.getElementById('soundToggleBtn');
+      btn.textContent = soundEnabled ? '🔊 SFX' : '🔇 MUTE';
+      btn.classList.toggle('bg-amber-300', soundEnabled);
+      btn.classList.toggle('bg-slate-300', !soundEnabled);
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      store.set('sound', soundEnabled);
+      applySoundButton();
+      if (soundEnabled) playDexBeep(740, 0.1);
+    }
+
+    let toastTimer = null;
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.remove('toast-hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.add('toast-hidden'), 2200);
+    }
+
+    function setShellTheme(theme, silent = false) {
+      store.set('theme', theme);
+      document.body.classList.remove('theme-johto', 'theme-hoenn');
+      if (theme === 'johto') document.body.classList.add('theme-johto');
+      if (theme === 'hoenn') document.body.classList.add('theme-hoenn');
+
+      ['kanto', 'johto', 'hoenn'].forEach(t => {
+        const b = document.getElementById(`themeBtn-${t}`);
+        b.classList.toggle('opacity-80', t !== theme);
+        b.classList.toggle('ring-2', t === theme);
+        b.classList.toggle('ring-white', t === theme);
+      });
+      if (!silent) playDexBeep(620, 0.08);
+    }
+
+    // =========================================================================
+    // 4. UTILIDADES DE RENDERIZADO
+    // =========================================================================
+    function formatNum(id) {
+      return '#' + String(id).padStart(4, '0');
+    }
+
+    function typeBadge(type, mini = false) {
+      const t = POKEMON_TYPES[type] || { color: '#64748B', text: '#FFFFFF' };
+      const sz = mini ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1 text-xs';
+      return `<span class="inline-block font-extrabold uppercase tracking-wider rounded-lg border-2 border-slate-900 shadow-[1px_1px_0_#1E293B] ${sz}" style="background:${t.color}; color:${t.text}">${type}</span>`;
+    }
+
+    function computeDefenseChart(types) {
+      const res = {};
+      TYPE_LIST.forEach(atk => {
+        let mult = 1;
+        types.forEach(def => {
+          const map = EFFECTIVENESS[atk] || {};
+          if (map[def] !== undefined) mult *= map[def];
+        });
+        res[atk] = mult;
+      });
+      return res;
+    }
+
+    function maxStabMultiplier(atkTypes, defTypes) {
+      let best = 1;
+      atkTypes.forEach(atk => {
+        let m = 1;
+        defTypes.forEach(def => {
+          const map = EFFECTIVENESS[atk] || {};
+          if (map[def] !== undefined) m *= map[def];
+        });
+        if (m > best) best = m;
+      });
+      return best;
+    }
+
+    // =========================================================================
+    // 5. NAVEGACIÓN ENTRE PESTAÑAS
+    // =========================================================================
+    function switchTab(tabId) {
+      playDexBeep(540, 0.06);
+      document.querySelectorAll('.tab-view').forEach(v => v.classList.add('hidden'));
+      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        const isCurrent = btn.dataset.tab === tabId;
+        btn.classList.toggle('active', isCurrent);
+        btn.classList.toggle('bg-amber-300', isCurrent);
+        btn.classList.toggle('text-slate-900', isCurrent);
+        btn.classList.toggle('bg-white', !isCurrent);
+        btn.classList.toggle('text-slate-800', !isCurrent);
+      });
+    }
+
+    // =========================================================================
+    // 6. POKÉDEX NACIONAL: FILTROS, CAPTURA Y TARJETAS
+    // =========================================================================
+    function buildTypeFilterBar() {
+      const bar = document.getElementById('typeFilterBar');
+      let html = `<button onclick="selectTypeFilter('all')" data-tf="all" class="tf-btn px-3 py-1 rounded-xl text-xs font-extrabold border-2 border-slate-900 bg-slate-900 text-amber-300 shadow-[2px_2px_0_#1E293B]">Todos (18)</button>`;
+      TYPE_LIST.forEach(t => {
+        const st = POKEMON_TYPES[t];
+        html += `<button onclick="selectTypeFilter('${t}')" data-tf="${t}" class="tf-btn px-2.5 py-1 rounded-xl text-xs font-extrabold border-2 border-slate-900 transition-transform hover:scale-105" style="background:${st.color}; color:${st.text}">${t}</button>`;
+      });
+      bar.innerHTML = html;
+    }
+
+    function selectTypeFilter(t) {
+      activeType = t;
+      playDexBeep(600, 0.05);
+      document.querySelectorAll('.tf-btn').forEach(btn => {
+        const match = btn.dataset.tf === t;
+        btn.classList.toggle('ring-2', match);
+        btn.classList.toggle('ring-slate-900', match);
+        btn.classList.toggle('scale-105', match);
+        btn.classList.toggle('opacity-70', !match && t !== 'all');
+      });
+      renderPokedexCards();
+    }
+
+    function toggleCapturedOnly() {
+      showCapturedOnly = !showCapturedOnly;
+      const btn = document.getElementById('capturedFilterBtn');
+      btn.classList.toggle('bg-amber-300', showCapturedOnly);
+      btn.classList.toggle('bg-white', !showCapturedOnly);
+      playDexBeep(680, 0.07);
+      renderPokedexCards();
+    }
+
+    function toggleCapture(event, id) {
+      event.stopPropagation();
+      if (capturedIds.has(id)) {
+        capturedIds.delete(id);
+        playDexBeep(320, 0.08);
+      } else {
+        capturedIds.add(id);
+        playDexBeep(880, 0.1);
+      }
+      store.set('captured', [...capturedIds]);
+      document.getElementById('capturedCount').textContent = capturedIds.size;
+      renderPokedexCards(false);
+    }
+
+    function resetAllFilters() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('genSelect').value = 'all';
+      document.getElementById('catSelect').value = 'all';
+      document.getElementById('sortSelect').value = 'id-asc';
+      showCapturedOnly = false;
+      document.getElementById('capturedFilterBtn').classList.remove('bg-amber-300');
+      document.getElementById('capturedFilterBtn').classList.add('bg-white');
+      selectTypeFilter('all');
+    }
+
+    const PAGE_SIZE = 48;
+    let visibleLimit = PAGE_SIZE;
+    const normalize = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+    function showMoreCards() {
+      visibleLimit += PAGE_SIZE;
+      playDexBeep(600, 0.05);
+      renderPokedexCards(false);
+    }
+
+    // resetLimit = false mantiene las páginas ya abiertas (p. ej. al capturar un Pokémon)
+    function renderPokedexCards(resetLimit = true) {
+      if (resetLimit !== false) visibleLimit = PAGE_SIZE;
+      const q = normalize(document.getElementById('searchInput').value.trim());
+      const qNum = q.replace(/^#/, '').replace(/^0+(?=\d)/, '');
+      const gen = document.getElementById('genSelect').value;
+      const cat = document.getElementById('catSelect').value;
+      const sort = document.getElementById('sortSelect').value;
+
+      let list = POKEDEX.filter(p => {
+        const matchQ = !q
+          || normalize(p.name).includes(q)
+          || (p.apiName || '').includes(q)
+          || (/^\d+$/.test(qNum) && String(p.id) === qNum)
+          || p.abilities.some(a => normalize(a).includes(q));
+        const matchT = activeType === 'all' || p.types.includes(activeType);
+        const matchG = gen === 'all' || String(p.gen) === gen;
+        const matchC = cat === 'all' || p.tags.includes(cat);
+        const matchCap = !showCapturedOnly || capturedIds.has(p.id);
+        return matchQ && matchT && matchG && matchC && matchCap;
+      });
+
+      list.sort((a, b) => {
+        if (sort === 'id-asc') return a.id - b.id;
+        if (sort === 'bst-desc') return b.bst - a.bst;
+        if (sort === 'atk-desc') return b.stats.atk - a.stats.atk;
+        if (sort === 'spa-desc') return b.stats.spa - a.stats.spa;
+        if (sort === 'spe-desc') return b.stats.spe - a.stats.spe;
+        if (sort === 'hp-desc') return b.stats.hp - a.stats.hp;
+        return 0;
+      });
+
+      document.getElementById('visibleCount').textContent = list.length;
+      const grid = document.getElementById('pokedexGrid');
+      const remaining = list.length - visibleLimit;
+      document.getElementById('loadMoreBox').innerHTML = remaining > 0
+        ? `<button onclick="showMoreCards()" class="nintendo-btn mt-1 px-6 py-3 rounded-xl bg-amber-300 text-slate-900 font-display font-bold text-sm">Mostrar más Pokémon (${remaining} restantes) ▼</button>`
+        : '';
+
+      if (list.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full bg-white rounded-2xl p-10 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B] text-center space-y-3">
+            <div class="text-4xl">🧢</div>
+            <h3 class="font-display font-bold text-xl text-slate-900">¡Ningún Pokémon coincide con tu búsqueda!</h3>
+            <p class="text-sm font-semibold text-slate-600">Prueba cambiando los filtros de región, tipo o categoría.</p>
+            <button onclick="resetAllFilters()" class="nintendo-btn px-4 py-2 rounded-xl bg-amber-300 font-extrabold text-xs">Mostrar todos los Pokémon</button>
+          </div>`;
+        return;
+      }
+
+      grid.innerHTML = list.slice(0, visibleLimit).map(p => {
+        const mainType = POKEMON_TYPES[p.types[0]];
+        const isCaught = capturedIds.has(p.id);
+        return `
+          <article onclick="openDetailModal(${p.id})" class="poke-card rounded-2xl p-4 cursor-pointer relative overflow-hidden flex flex-col justify-between" style="background: linear-gradient(160deg, #FFFFFF 45%, ${mainType.light} 100%);">
+            <div class="pokeball-watermark"></div>
+
+            <div>
+              <!-- Cabecera de Ficha -->
+              <div class="flex items-center justify-between">
+                <span class="font-pixel text-[10px] text-slate-600">${formatNum(p.id)}</span>
+                <button onclick="toggleCapture(event, ${p.id})" title="${isCaught ? 'Capturado en tu Pokédex' : 'Marcar como capturado'}" class="w-7 h-7 rounded-full border-2 border-slate-900 flex items-center justify-center transition-transform active:scale-90 ${isCaught ? 'bg-gradient-to-b from-red-500 from-50% to-white to-50% shadow-[0_2px_0_#1E293B]' : 'bg-slate-200 opacity-55 hover:opacity-100'}">
+                  <span class="w-2.5 h-2.5 rounded-full bg-white border-2 border-slate-900"></span>
+                </button>
+              </div>
+
+              <!-- Artwork Oficial -->
+              <div class="h-36 flex items-center justify-center my-1 relative z-10">
+                <img
+                  src="${artworkNormal(p.id)}"
+                  alt="${p.name}"
+                  loading="lazy"
+                  onerror="this.src='https://placehold.co/180x180/F1F5F9/1E293B?text=${encodeURIComponent(p.name)}'"
+                  class="w-32 h-32 object-contain drop-shadow-[0_6px_6px_rgba(15,23,42,0.28)] transition-transform duration-200 hover:scale-110"
+                />
+              </div>
+
+              <!-- Nombre y Tipos -->
+              <div class="text-center relative z-10">
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Gen ${p.gen} · ${p.tier}${p.featured ? ' · ⭐' : ''}</span>
+                <h3 class="font-display font-bold text-xl text-slate-900 leading-tight">${p.name}</h3>
+                <div class="flex items-center justify-center gap-1.5 mt-2">
+                  ${p.types.map(t => typeBadge(t, true)).join('')}
+                </div>
+              </div>
+            </div>
+
+            <!-- Barra Inferior BST -->
+            <div class="mt-4 pt-2.5 border-t-2 border-slate-900/15 relative z-10">
+              <div class="flex items-center justify-between text-xs font-extrabold mb-1">
+                <span class="text-slate-600">TOTAL BASE</span>
+                <span class="text-slate-900">${p.bst} PTS</span>
+              </div>
+              <div class="w-full h-2.5 bg-slate-200 rounded-full border border-slate-900 overflow-hidden">
+                <div class="h-full rounded-full" style="width: ${Math.min(100, (p.bst / 720) * 100)}%; background:${mainType.color}"></div>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    // =========================================================================
+    // 7. MODAL DETALLADO (SHINY TOGGLE, CADENA EVOLUTIVA Y BUILD COMPETITIVA)
+    // =========================================================================
+    function openDetailModal(id) {
+      const p = POKEDEX.find(item => item.id === id);
+      if (!p) return;
+      currentModalId = id;
+      modalIsShiny = false;
+      playDexBeep(760, 0.09);
+
+      const mainStyle = POKEMON_TYPES[p.types[0]];
+      const defChart = computeDefenseChart(p.types);
+      const weak4 = TYPE_LIST.filter(t => defChart[t] === 4);
+      const weak2 = TYPE_LIST.filter(t => defChart[t] === 2);
+      const res05 = TYPE_LIST.filter(t => defChart[t] === 0.5);
+      const res025 = TYPE_LIST.filter(t => defChart[t] === 0.25);
+      const imm0 = TYPE_LIST.filter(t => defChart[t] === 0);
+
+      const statsArr = [
+        { label: 'PS', val: p.stats.hp, color: '#22C55E' },
+        { label: 'Ataque', val: p.stats.atk, color: '#EF4444' },
+        { label: 'Defensa', val: p.stats.def, color: '#F97316' },
+        { label: 'At. Esp.', val: p.stats.spa, color: '#3B82F6' },
+        { label: 'Def. Esp.', val: p.stats.spd, color: '#A855F7' },
+        { label: 'Velocidad', val: p.stats.spe, color: '#EAB308' }
+      ];
+
+      document.getElementById('modalHeaderTitle').textContent = `ENTRADA POKÉDEX ${formatNum(p.id)} · ${p.name.toUpperCase()}`;
+
+      document.getElementById('detailModalContent').innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+          
+          <!-- Izquierda: Visor de Sprite + Shiny + Datos Físicos -->
+          <div class="md:col-span-5 rounded-2xl p-5 border-3 border-slate-900 shadow-[4px_4px_0_#1E293B] flex flex-col items-center text-center" style="background:${mainStyle.light}">
+            <div class="w-full flex items-center justify-between">
+              <span class="font-pixel text-xs text-slate-700">${formatNum(p.id)}</span>
+              <button onclick="toggleModalShiny(${p.id})" id="shinyToggleBtn" class="nintendo-btn px-3 py-1 rounded-xl bg-white text-slate-900 font-extrabold text-xs flex items-center gap-1">
+                ✨ Normal
+              </button>
+            </div>
+
+            <div class="my-4 w-44 h-44 flex items-center justify-center relative">
+              <img id="modalArtworkImg" src="${artworkNormal(p.id)}" alt="${p.name}" class="w-44 h-44 object-contain drop-shadow-[0_10px_10px_rgba(15,23,42,0.3)] transition-transform duration-300 hover:scale-105" />
+            </div>
+
+            <h2 class="font-display font-bold text-3xl text-slate-900">${p.name}</h2>
+            ${p.genus ? `<span class="text-xs font-extrabold text-slate-600">${p.genus}</span>` : ''}
+            <div class="flex gap-2 mt-2">
+              ${p.types.map(t => typeBadge(t)).join('')}
+            </div>
+
+            <!-- Descripción Oficial Pokédex -->
+            <div class="gba-dialog rounded-xl p-3.5 mt-4 text-left text-xs font-bold text-slate-800 leading-relaxed">
+              "${p.dexEntry}"
+            </div>
+
+            <!-- Altura, Peso y Habilidades -->
+            <div class="grid grid-cols-2 gap-2.5 w-full mt-3 text-xs">
+              <div class="bg-white p-2.5 rounded-xl border-2 border-slate-900">
+                <span class="text-slate-500 font-extrabold block">ALTURA</span>
+                <span class="font-display font-bold text-base text-slate-900">${p.height}</span>
+              </div>
+              <div class="bg-white p-2.5 rounded-xl border-2 border-slate-900">
+                <span class="text-slate-500 font-extrabold block">PESO</span>
+                <span class="font-display font-bold text-base text-slate-900">${p.weight}</span>
+              </div>
+            </div>
+
+            <div class="w-full mt-2.5 bg-white p-3 rounded-xl border-2 border-slate-900 text-left text-xs">
+              <span class="text-slate-500 font-extrabold block mb-1">HABILIDADES:</span>
+              <div class="flex flex-wrap gap-1.5">
+                ${p.abilities.map(a => `<span class="px-2.5 py-1 rounded-lg bg-amber-200 border border-slate-900 font-extrabold text-slate-900">${a}</span>`).join('')}
+              </div>
+            </div>
+          </div>
+
+          <!-- Derecha: Estadísticas, Cadena Evolutiva, Tipos y Set Competitivo -->
+          <div class="md:col-span-7 space-y-5">
+            
+            <!-- Estadísticas Base -->
+            <div class="bg-slate-50 rounded-2xl p-4 border-2 border-slate-900 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <h3 class="font-display font-bold text-lg text-slate-900">Estadísticas Base</h3>
+                <span class="px-3 py-1 rounded-lg bg-slate-900 text-amber-300 font-display font-bold text-sm">BST: ${p.bst}</span>
+              </div>
+              ${statsArr.map(s => `
+                <div>
+                  <div class="flex justify-between text-xs font-extrabold mb-0.5">
+                    <span class="text-slate-700">${s.label}</span>
+                    <span class="text-slate-900">${s.val}</span>
+                  </div>
+                  <div class="w-full h-3 bg-slate-200 rounded-full border border-slate-900 overflow-hidden">
+                    <div class="h-full rounded-full stat-fill" style="width:${Math.min(100, (s.val / 180) * 100)}%; background:${s.color}"></div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Cadena Evolutiva Visual Interactiva -->
+            <div class="bg-slate-50 rounded-2xl p-4 border-2 border-slate-900">
+              <h4 class="font-display font-bold text-sm text-slate-900 mb-2.5">Cadena Evolutiva (Pulsa para explorar)</h4>
+              <div id="evoChainBox" class="flex flex-wrap items-center justify-center gap-3">
+                <span class="text-xs font-bold text-slate-500">Cargando cadena evolutiva...</span>
+              </div>
+            </div>
+
+            <!-- Set Competitivo Recomendado (solo fichas destacadas) -->
+            ${p.build ? `<div class="bg-blue-50 rounded-2xl p-4 border-2 border-slate-900 space-y-2.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h4 class="font-display font-bold text-base text-blue-900">🏆 Set Competitivo Recomendado (${p.tier})</h4>
+                <span class="text-xs font-extrabold px-2.5 py-0.5 rounded bg-blue-600 text-white">${p.build.nature}</span>
+              </div>
+              <p class="text-xs font-bold text-slate-700">${p.metaNote}</p>
+              <div class="text-xs font-extrabold text-slate-900">Objeto: <span class="px-2 py-0.5 rounded bg-amber-300 border border-slate-900">${p.build.item}</span></div>
+              <div class="grid grid-cols-2 gap-2 pt-1">
+                ${p.build.moves.map((m, i) => `
+                  <div class="px-3 py-1.5 rounded-xl bg-white border-2 border-slate-900 font-extrabold text-xs text-slate-900 flex items-center gap-1.5">
+                    <span class="text-red-600">▸</span> ${m}
+                  </div>
+                `).join('')}
+              </div>
+            </div>` : `<div class="bg-blue-50 rounded-2xl p-4 border-2 border-slate-900 text-xs font-bold text-slate-700">
+              📡 Ficha generada con datos de PokeAPI · Gen ${p.gen} · ${p.tier}. Las fichas marcadas con ⭐ incluyen además set competitivo y notas de torneo.
+            </div>`}
+
+            <!-- Debilidades y Resistencias -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div class="bg-red-50 border-2 border-slate-900 rounded-xl p-3">
+                <span class="font-extrabold text-red-700 block mb-1.5">Debilidades (x4 / x2):</span>
+                <div class="flex flex-wrap gap-1">
+                  ${weak4.map(t => `${typeBadge(t, true)}<span class="font-black text-red-700 self-center mr-1">x4</span>`).join('')}
+                  ${weak2.map(t => typeBadge(t, true)).join('')}
+                </div>
+              </div>
+              <div class="bg-emerald-50 border-2 border-slate-900 rounded-xl p-3">
+                <span class="font-extrabold text-emerald-800 block mb-1.5">Resistencias e Inmunidades:</span>
+                <div class="flex flex-wrap gap-1">
+                  ${imm0.map(t => `${typeBadge(t, true)}<span class="font-black text-blue-700 self-center mr-1">x0</span>`).join('')}
+                  ${res025.map(t => `${typeBadge(t, true)}<span class="font-black text-emerald-700 self-center mr-1">¼</span>`).join('')}
+                  ${res05.map(t => typeBadge(t, true)).join('')}
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button onclick="sendPokemonToVersus(${p.id})" class="nintendo-btn w-full py-3 rounded-xl bg-amber-300 text-slate-900 font-display font-bold text-sm">
+                ⚔️ Llevar al Estadio Versus
+              </button>
+              <button onclick="addToTeam(${p.id})" class="nintendo-btn w-full py-3 rounded-xl bg-emerald-300 text-slate-900 font-display font-bold text-sm">
+                🎒 ${team.includes(p.id) ? 'Ya está en tu equipo' : 'Añadir a Mi Equipo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const modal = document.getElementById('detailModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      renderEvoChain(p);
+    }
+
+    function toggleModalShiny(id) {
+      modalIsShiny = !modalIsShiny;
+      const img = document.getElementById('modalArtworkImg');
+      const btn = document.getElementById('shinyToggleBtn');
+      img.src = modalIsShiny ? artworkShiny(id) : artworkNormal(id);
+      btn.textContent = modalIsShiny ? '✨ SHINY ACTIVO' : '✨ Normal';
+      btn.classList.toggle('bg-amber-300', modalIsShiny);
+      btn.classList.toggle('bg-white', !modalIsShiny);
+      if (modalIsShiny) playVictoryFanfare();
+      else playDexBeep(520, 0.08);
+    }
+
+    function closeDetailModal() {
+      const modal = document.getElementById('detailModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      playDexBeep(420, 0.06);
+    }
+
+    function isModalOpen() {
+      return !document.getElementById('detailModal').classList.contains('hidden');
+    }
+
+    function navigateModal(step) {
+      const idx = POKEDEX.findIndex(p => p.id === currentModalId);
+      if (idx === -1) return;
+      const next = POKEDEX[(idx + step + POKEDEX.length) % POKEDEX.length];
+      openDetailModal(next.id);
+    }
+
+    function openRandomModal() {
+      const rnd = POKEDEX[Math.floor(Math.random() * POKEDEX.length)];
+      openDetailModal(rnd.id);
+    }
+
+    function sendPokemonToVersus(id) {
+      closeDetailModal();
+      document.getElementById('vsPick1').value = id;
+      updateVersusArena();
+      switchTab('versus');
+    }
+
+    // =========================================================================
+    // 8. RANKING & PODIO DE LIGA POKÉMON
+    // =========================================================================
+    function setRankMode(mode) {
+      rankMode = mode;
+      playDexBeep(600, 0.06);
+      document.querySelectorAll('.rmode-btn').forEach(b => {
+        const active = b.dataset.rmode === mode;
+        b.classList.toggle('active', active);
+        b.classList.toggle('bg-amber-300', active);
+        b.classList.toggle('text-slate-900', active);
+        b.classList.toggle('bg-white', !active);
+      });
+      renderRankingView();
+    }
+
+    function renderRankingView() {
+      let pool = [...POKEDEX];
+      if (rankMode === 'competitive') pool = pool.filter(p => p.tags.includes('competitive'));
+      if (rankMode === 'pseudo') pool = pool.filter(p => p.tags.includes('pseudo'));
+      if (rankMode === 'starter') pool = pool.filter(p => p.tags.includes('starter'));
+
+      pool.sort((a, b) => b.bst - a.bst);
+      const top3 = pool.slice(0, 3);
+
+      const podiumLayout = top3.length >= 3 ? [
+        { p: top3[1], rank: 2, icon: '🥈', bg: 'bg-slate-100', h: 'md:h-72' },
+        { p: top3[0], rank: 1, icon: '👑', bg: 'bg-amber-200', h: 'md:h-80' },
+        { p: top3[2], rank: 3, icon: '🥉', bg: 'bg-orange-100', h: 'md:h-64' }
+      ] : top3.map((p, i) => ({ p, rank: i + 1, icon: '🏆', bg: 'bg-amber-100', h: '' }));
+
+      document.getElementById('championPodium').innerHTML = podiumLayout.map(slot => `
+        <div onclick="openDetailModal(${slot.p.id})" class="poke-card rounded-2xl p-5 ${slot.bg} cursor-pointer flex flex-col items-center justify-between text-center ${slot.h}">
+          <div class="w-full flex items-center justify-between">
+            <span class="px-2.5 py-1 rounded-lg bg-slate-900 text-amber-300 font-pixel text-[10px]">${slot.icon} #${slot.rank}</span>
+            <span class="font-display font-bold text-sm text-slate-900">${slot.p.bst} BST</span>
+          </div>
+          <img src="${artworkNormal(slot.p.id)}" alt="${slot.p.name}" class="w-32 h-32 object-contain my-2 drop-shadow-md" />
+          <div>
+            <h3 class="font-display font-bold text-2xl text-slate-900">${slot.p.name}</h3>
+            <div class="flex justify-center gap-1.5 mt-1.5">${slot.p.types.map(t => typeBadge(t, true)).join('')}</div>
+          </div>
+        </div>
+      `).join('');
+
+      const RANK_LIMIT = 50;
+      const rankNote = pool.length > RANK_LIMIT
+        ? `<p class="text-xs font-extrabold text-slate-500">Mostrando el top ${RANK_LIMIT} de ${pool.length} Pokémon.</p>`
+        : '';
+      document.getElementById('rankingTableList').innerHTML = rankNote + pool.slice(0, RANK_LIMIT).map((p, idx) => `
+        <div onclick="openDetailModal(${p.id})" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-50 hover:bg-amber-50 border-2 border-slate-900 cursor-pointer transition-colors">
+          <div class="flex items-center gap-3.5">
+            <span class="font-pixel text-xs w-9 text-center ${idx < 3 ? 'text-red-600' : 'text-slate-500'}">#${idx + 1}</span>
+            <img src="${artworkNormal(p.id)}" alt="${p.name}" class="w-14 h-14 object-contain shrink-0" />
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h4 class="font-display font-bold text-lg text-slate-900">${p.name}</h4>
+                <div class="flex gap-1">${p.types.map(t => typeBadge(t, true)).join('')}</div>
+              </div>
+              <p class="text-xs font-bold text-slate-600 mt-0.5">${p.metaNote || p.genus || ''}</p>
+            </div>
+          </div>
+          <div class="flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 border-slate-300 pt-2 sm:pt-0 shrink-0">
+            <span class="px-2.5 py-0.5 rounded bg-slate-900 text-amber-300 font-display font-bold text-sm">${p.bst} BST</span>
+            <span class="text-xs font-extrabold text-blue-700 mt-1">${p.tier}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // =========================================================================
+    // 9. ESTADIO VERSUS & SIMULADOR DE COMBATE RÁPIDO
+    // =========================================================================
+    function initVersusArena() {
+      const sorted = [...POKEDEX].sort((a, b) => a.name.localeCompare(b.name));
+      const opts = sorted.map(p => `<option value="${p.id}">${p.name} (${formatNum(p.id)}) · ${p.bst} BST</option>`).join('');
+      const s1 = document.getElementById('vsPick1');
+      const s2 = document.getElementById('vsPick2');
+      s1.innerHTML = opts;
+      s2.innerHTML = opts;
+      s1.value = 384; // Rayquaza
+      s2.value = 150; // Mewtwo
+      updateVersusArena();
+    }
+
+    function swapVersusPicks() {
+      const s1 = document.getElementById('vsPick1');
+      const s2 = document.getElementById('vsPick2');
+      const tmp = s1.value;
+      s1.value = s2.value;
+      s2.value = tmp;
+      playDexBeep(650, 0.06);
+      updateVersusArena();
+    }
+
+    function resetBattle() {
+      battleRun++;
+      document.getElementById('battleField').classList.add('hidden');
+      const btn = document.getElementById('battleBtn');
+      btn.disabled = false;
+      btn.classList.remove('opacity-60');
+    }
+
+    function updateVersusArena() {
+      resetBattle();
+      const p1 = POKEDEX.find(p => p.id === Number(document.getElementById('vsPick1').value)) || POKEDEX[0];
+      const p2 = POKEDEX.find(p => p.id === Number(document.getElementById('vsPick2').value)) || POKEDEX[1];
+
+      document.getElementById('vs1BstTag').textContent = `BST: ${p1.bst}`;
+      document.getElementById('vs2BstTag').textContent = `BST: ${p2.bst}`;
+      document.getElementById('vsLegend1').textContent = p1.name;
+      document.getElementById('vsLegend2').textContent = p2.name;
+
+      document.getElementById('vsPreview1').innerHTML = `
+        <img src="${artworkNormal(p1.id)}" alt="${p1.name}" class="w-28 h-28 object-contain drop-shadow" />
+        <h3 class="font-display font-bold text-xl text-slate-900 mt-1">${p1.name}</h3>
+        <div class="flex gap-1.5 mt-1">${p1.types.map(t => typeBadge(t, true)).join('')}</div>
+      `;
+
+      document.getElementById('vsPreview2').innerHTML = `
+        <img src="${artworkNormal(p2.id)}" alt="${p2.name}" class="w-28 h-28 object-contain drop-shadow" />
+        <h3 class="font-display font-bold text-xl text-slate-900 mt-1">${p2.name}</h3>
+        <div class="flex gap-1.5 mt-1">${p2.types.map(t => typeBadge(t, true)).join('')}</div>
+      `;
+
+      drawHexRadar(p1, p2);
+
+      const rows = [
+        { k: 'hp', label: 'PS' },
+        { k: 'atk', label: 'Ataque' },
+        { k: 'def', label: 'Defensa' },
+        { k: 'spa', label: 'At. Esp.' },
+        { k: 'spd', label: 'Def. Esp.' },
+        { k: 'spe', label: 'Velocidad' }
+      ];
+
+      document.getElementById('vsStatBars').innerHTML = rows.map(r => {
+        const v1 = p1.stats[r.k];
+        const v2 = p2.stats[r.k];
+        return `
+          <div>
+            <div class="flex justify-between text-xs font-extrabold mb-0.5">
+              <span class="${v1 > v2 ? 'text-blue-700' : 'text-slate-600'}">${v1}</span>
+              <span class="text-slate-800 uppercase">${r.label}</span>
+              <span class="${v2 > v1 ? 'text-red-700' : 'text-slate-600'}">${v2}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-1.5">
+              <div class="h-2.5 bg-slate-200 rounded-l-full border border-slate-900 flex justify-end overflow-hidden">
+                <div class="h-full bg-blue-600" style="width:${Math.min(100, (v1 / 180) * 100)}%"></div>
+              </div>
+              <div class="h-2.5 bg-slate-200 rounded-r-full border border-slate-900 flex justify-start overflow-hidden">
+                <div class="h-full bg-red-600" style="width:${Math.min(100, (v2 / 180) * 100)}%"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const m1 = maxStabMultiplier(p1.types, p2.types);
+      const m2 = maxStabMultiplier(p2.types, p1.types);
+      document.getElementById('vsAdvantageChip').textContent = `STAB Máx: ${p1.name} (x${m1}) vs ${p2.name} (x${m2})`;
+    }
+
+    function drawHexRadar(p1, p2) {
+      const size = 260, cx = 130, cy = 130, rMax = 88;
+      const keys = ['hp', 'atk', 'def', 'spe', 'spd', 'spa'];
+      const names = ['PS', 'ATQ', 'DEF', 'VEL', 'D.ESP', 'A.ESP'];
+
+      const poly = (stats) => keys.map((k, i) => {
+        const ang = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+        const ratio = Math.min(1, stats[k] / 170);
+        return `${(cx + Math.cos(ang) * rMax * ratio).toFixed(1)},${(cy + Math.sin(ang) * rMax * ratio).toFixed(1)}`;
+      }).join(' ');
+
+      let grid = '';
+      [0.33, 0.66, 1].forEach(lvl => {
+        const pts = keys.map((_, i) => {
+          const ang = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+          return `${(cx + Math.cos(ang) * rMax * lvl).toFixed(1)},${(cy + Math.sin(ang) * rMax * lvl).toFixed(1)}`;
+        }).join(' ');
+        grid += `<polygon points="${pts}" fill="none" stroke="#CBD5E1" stroke-width="1.5" />`;
+      });
+
+      let axes = '';
+      names.forEach((lbl, i) => {
+        const ang = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+        const x2 = cx + Math.cos(ang) * rMax;
+        const y2 = cy + Math.sin(ang) * rMax;
+        const lx = cx + Math.cos(ang) * (rMax + 20);
+        const ly = cy + Math.sin(ang) * (rMax + 20);
+        axes += `<line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}" stroke="#CBD5E1" stroke-width="1.5" />
+                 <text x="${lx}" y="${ly}" fill="#1E293B" font-size="10" font-weight="800" text-anchor="middle" dominant-baseline="middle">${lbl}</text>`;
+      });
+
+      document.getElementById('vsRadarSvg').innerHTML = `
+        <svg viewBox="0 0 ${size} ${size}" class="w-full h-full">
+          ${grid}${axes}
+          <polygon points="${poly(p1.stats)}" fill="rgba(37, 99, 235, 0.30)" stroke="#2563EB" stroke-width="2.5" />
+          <polygon points="${poly(p2.stats)}" fill="rgba(220, 38, 38, 0.30)" stroke="#DC2626" stroke-width="2.5" />
+        </svg>
+      `;
+    }
+
+    // Combate por turnos a nivel 50 con la fórmula de daño de los juegos (simplificada)
+    const MOVE_BY_TYPE = {
+      'Normal': 'Golpe Cuerpo', 'Fuego': 'Lanzallamas', 'Agua': 'Surf', 'Eléctrico': 'Rayo',
+      'Planta': 'Gigadrenado', 'Hielo': 'Rayo Hielo', 'Lucha': 'A Bocajarro', 'Veneno': 'Bomba Lodo',
+      'Tierra': 'Terremoto', 'Volador': 'Pájaro Osado', 'Psíquico': 'Psíquico', 'Bicho': 'Tijera X',
+      'Roca': 'Roca Afilada', 'Fantasma': 'Bola Sombra', 'Dragón': 'Pulso Dragón', 'Siniestro': 'Pulso Umbrío',
+      'Acero': 'Cabeza de Hierro', 'Hada': 'Fuerza Lunar'
+    };
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    function statAtLevel50(base, isHp = false) {
+      const core = Math.floor((2 * base + 31) * 50 / 100);
+      return isHp ? core + 60 : core + 5;
+    }
+
+    function typeMultiplier(attackType, defenderTypes) {
+      return computeDefenseChart(defenderTypes)[attackType];
+    }
+
+    function pickBestMove(attacker, defender) {
+      const physical = attacker.stats.atk >= attacker.stats.spa;
+      const options = attacker.types.map(t => ({ type: t, power: 90, stab: 1.5 }));
+      options.push({ type: 'Normal', power: 70, stab: attacker.types.includes('Normal') ? 1.5 : 1 });
+
+      let best = null;
+      options.forEach(option => {
+        const eff = typeMultiplier(option.type, defender.types);
+        const score = option.power * option.stab * eff;
+        if (!best || score > best.score) {
+          best = { ...option, eff, score, physical, name: MOVE_BY_TYPE[option.type] };
+        }
+      });
+      return best;
+    }
+
+    function calcDamage(attacker, defender, move) {
+      if (move.eff === 0) return { dmg: 0, crit: false };
+      const atk = statAtLevel50(move.physical ? attacker.stats.atk : attacker.stats.spa);
+      const def = statAtLevel50(move.physical ? defender.stats.def : defender.stats.spd);
+      const base = Math.floor(Math.floor(22 * move.power * atk / def) / 50) + 2;
+      const crit = Math.random() < 1 / 24;
+      const roll = 0.85 + Math.random() * 0.15;
+      return { dmg: Math.max(1, Math.floor(base * move.stab * move.eff * roll * (crit ? 1.5 : 1))), crit };
+    }
+
+    function effectivenessText(eff) {
+      if (eff === 0) return 'No afecta al rival...';
+      if (eff >= 4) return '¡Es súper eficaz! (x4)';
+      if (eff > 1) return '¡Es súper eficaz!';
+      if (eff < 1) return 'No es muy eficaz...';
+      return '';
+    }
+
+    function renderFighter(f) {
+      const pct = Math.max(0, (f.hp / f.maxHp) * 100);
+      const bar = document.getElementById(`bfHp${f.side}`);
+      bar.style.width = pct + '%';
+      bar.style.backgroundColor = pct > 50 ? '#22C55E' : (pct > 20 ? '#EAB308' : '#EF4444');
+      document.getElementById(`bfHpText${f.side}`).textContent = `${f.hp}/${f.maxHp} PS`;
+    }
+
+    function restartAnimation(el, className) {
+      el.classList.remove(className);
+      void el.offsetWidth;
+      el.classList.add(className);
+    }
+
+    async function simulateQuickBattle() {
+      const run = ++battleRun;
+      const p1 = POKEDEX.find(p => p.id === Number(document.getElementById('vsPick1').value));
+      const p2 = POKEDEX.find(p => p.id === Number(document.getElementById('vsPick2').value));
+
+      const fighters = [p1, p2].map((p, i) => {
+        const maxHp = statAtLevel50(p.stats.hp, true);
+        return { p, side: i + 1, maxHp, hp: maxHp };
+      });
+
+      document.getElementById('battleField').classList.remove('hidden');
+      fighters.forEach(f => {
+        document.getElementById(`bfName${f.side}`).textContent = f.p.name;
+        const img = document.getElementById(`bfImg${f.side}`);
+        img.src = artworkNormal(f.p.id);
+        img.alt = f.p.name;
+        img.classList.remove('fainted', 'hit-shake');
+        renderFighter(f);
+      });
+
+      const btn = document.getElementById('battleBtn');
+      btn.disabled = true;
+      btn.classList.add('opacity-60');
+
+      const log = document.getElementById('battleLogBox');
+      log.innerHTML = `<p class="font-pixel text-[10px] text-red-600">▶ COMBATE NV. 50 · ${p1.name.toUpperCase()} VS ${p2.name.toUpperCase()}</p>`;
+      const say = (html) => {
+        log.insertAdjacentHTML('beforeend', `<p>${html}</p>`);
+        log.scrollTop = log.scrollHeight;
+      };
+
+      playDexBeep(440, 0.12);
+      let turn = 1;
+      while (fighters.every(f => f.hp > 0) && turn <= 20) {
+        const order = [...fighters].sort((a, b) => (b.p.stats.spe - a.p.stats.spe) || (Math.random() - 0.5));
+        say(`<span class="font-pixel text-[9px] text-blue-700">TURNO ${turn}</span>`);
+
+        for (const attacker of order) {
+          const defender = fighters.find(f => f !== attacker);
+          if (attacker.hp <= 0 || defender.hp <= 0) break;
+
+          await sleep(700);
+          if (run !== battleRun) return;
+
+          const move = pickBestMove(attacker.p, defender.p);
+          const { dmg, crit } = calcDamage(attacker.p, defender.p, move);
+          defender.hp = Math.max(0, defender.hp - dmg);
+
+          say(`<strong>${attacker.p.name}</strong> usa <em>${move.name}</em>. ${effectivenessText(move.eff)}${crit ? ' <span class="text-amber-600">¡Golpe crítico!</span>' : ''} <span class="text-slate-500">(−${dmg} PS)</span>`);
+          renderFighter(defender);
+          if (dmg > 0) restartAnimation(document.getElementById(`bfImg${defender.side}`), 'hit-shake');
+          playDexBeep(move.eff > 1 ? 320 : 220, 0.12, 'sawtooth');
+
+          if (defender.hp <= 0) {
+            await sleep(450);
+            if (run !== battleRun) return;
+            document.getElementById(`bfImg${defender.side}`).classList.add('fainted');
+            say(`💫 ¡${defender.p.name} se ha debilitado!`);
+          }
+        }
+        turn++;
+      }
+
+      if (run !== battleRun) return;
+      const winner = [...fighters].sort((a, b) => (b.hp / b.maxHp) - (a.hp / a.maxHp))[0];
+      const timeUp = fighters.every(f => f.hp > 0);
+      say(`<span class="text-emerald-700 font-extrabold">🏆 ${timeUp ? 'Tiempo agotado: gana por PS restantes' : '¡Victoria!'} ${winner.p.name} termina con ${winner.hp}/${winner.maxHp} PS.</span>`);
+      playVictoryFanfare();
+      btn.disabled = false;
+      btn.classList.remove('opacity-60');
+    }
+
+    // =========================================================================
+    // 10. CALCULADORA DE TABLA DE TIPOS
+    // =========================================================================
+    function initTypeLab() {
+      const g1 = document.getElementById('calcGrid1');
+      const g2 = document.getElementById('calcGrid2');
+
+      g1.innerHTML = TYPE_LIST.map(t => `
+        <button onclick="setCalcType(1, '${t}')" data-ct1="${t}" class="ct1-btn px-2.5 py-1 rounded-xl text-xs font-extrabold border-2 border-slate-900" style="background:${POKEMON_TYPES[t].color}; color:${POKEMON_TYPES[t].text}">${t}</button>
+      `).join('');
+
+      g2.innerHTML = TYPE_LIST.map(t => `
+        <button onclick="setCalcType(2, '${t}')" data-ct2="${t}" class="ct2-btn px-2.5 py-1 rounded-xl text-xs font-extrabold border-2 border-slate-900" style="background:${POKEMON_TYPES[t].color}; color:${POKEMON_TYPES[t].text}">${t}</button>
+      `).join('');
+
+      renderTypeLab();
+    }
+
+    function setCalcType(slot, t) {
+      playDexBeep(580, 0.05);
+      if (slot === 1) {
+        calcType1 = t;
+        if (calcType2 === t) calcType2 = null;
+      } else {
+        calcType2 = (t === null || calcType2 === t || t === calcType1) ? null : t;
+      }
+      renderTypeLab();
+    }
+
+    function renderTypeLab() {
+      document.getElementById('calcActiveCombo').textContent = calcType2 ? `${calcType1} / ${calcType2}` : calcType1;
+
+      document.querySelectorAll('.ct1-btn').forEach(b => {
+        const active = b.dataset.ct1 === calcType1;
+        b.classList.toggle('ring-2', active);
+        b.classList.toggle('ring-slate-900', active);
+        b.classList.toggle('opacity-55', !active);
+      });
+
+      document.querySelectorAll('.ct2-btn').forEach(b => {
+        const active = b.dataset.ct2 === calcType2;
+        b.classList.toggle('ring-2', active);
+        b.classList.toggle('ring-slate-900', active);
+        b.classList.toggle('opacity-50', !active);
+      });
+
+      const combo = calcType2 ? [calcType1, calcType2] : [calcType1];
+      const chart = computeDefenseChart(combo);
+
+      const cols = [
+        { title: 'Crítico (x4)', mult: 4, bg: 'bg-red-100', head: 'text-red-800' },
+        { title: 'Débil (x2)', mult: 2, bg: 'bg-orange-100', head: 'text-orange-800' },
+        { title: 'Resiste (x0.5)', mult: 0.5, bg: 'bg-emerald-100', head: 'text-emerald-800' },
+        { title: 'Muy Resiste (¼)', mult: 0.25, bg: 'bg-teal-100', head: 'text-teal-800' },
+        { title: 'Inmune (x0)', mult: 0, bg: 'bg-blue-100', head: 'text-blue-800' }
+      ];
+
+      document.getElementById('calcResultsGrid').innerHTML = cols.map(c => {
+        const list = TYPE_LIST.filter(t => chart[t] === c.mult);
+        return `
+          <div class="rounded-2xl p-4 border-2 border-slate-900 ${c.bg} space-y-2.5">
+            <div class="flex items-center justify-between">
+              <h4 class="font-display font-bold text-sm ${c.head}">${c.title}</h4>
+              <span class="px-2 py-0.5 rounded bg-slate-900 text-white font-extrabold text-xs">${list.length}</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              ${list.length > 0 ? list.map(t => typeBadge(t, true)).join('') : '<span class="text-xs font-bold text-slate-500">Ninguno</span>'}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // =========================================================================
+    // 11. MINIJUEGO "¿QUIÉN ES ESE POKÉMON?"
+    // =========================================================================
+    function loadNewQuizRound() {
+      quizLocked = false;
+      document.getElementById('nextQuizButton').classList.add('hidden');
+
+      const sprite = document.getElementById('quizSprite');
+      sprite.classList.remove('revealed-img');
+      sprite.classList.add('silhouette-img');
+
+      const shuffled = [...POKEDEX].sort(() => Math.random() - 0.5);
+      quizTarget = shuffled[0];
+      const choices = shuffled.slice(0, 4).sort(() => Math.random() - 0.5);
+
+      sprite.src = artworkNormal(quizTarget.id);
+      document.getElementById('quizHintPill').textContent = `Pista: Tipo ${quizTarget.types.join(' / ')} · Gen ${quizTarget.gen}`;
+      document.getElementById('quizDialog').textContent = '¡Un Pokémon salvaje apareció en la pantalla! Selecciona su nombre correcto.';
+
+      document.getElementById('quizButtonsGrid').innerHTML = choices.map(c => `
+        <button onclick="answerQuiz(${c.id}, this)" class="q-choice nintendo-btn px-4 py-3 rounded-xl bg-slate-100 hover:bg-amber-200 text-slate-900 font-display font-bold text-base text-left flex items-center gap-2">
+          <span class="text-red-600">▶</span> ${c.name}
+        </button>
+      `).join('');
+    }
+
+    function answerQuiz(chosenId, btn) {
+      if (quizLocked) return;
+      quizLocked = true;
+
+      const sprite = document.getElementById('quizSprite');
+      sprite.classList.remove('silhouette-img');
+      sprite.classList.add('revealed-img');
+
+      document.querySelectorAll('.q-choice').forEach(b => b.disabled = true);
+
+      if (chosenId === quizTarget.id) {
+        streakNow++;
+        if (streakNow > streakMax) {
+          streakMax = streakNow;
+          store.set('streakMax', streakMax);
+        }
+        btn.classList.remove('bg-slate-100');
+        btn.classList.add('bg-emerald-300');
+        document.getElementById('quizDialog').innerHTML = `🎉 <strong>¡Es ${quizTarget.name}!</strong> ¡Has acertado! (${quizTarget.bst} BST · ${quizTarget.tier}).`;
+        playVictoryFanfare();
+      } else {
+        streakNow = 0;
+        btn.classList.remove('bg-slate-100');
+        btn.classList.add('bg-red-300');
+        document.getElementById('quizDialog').innerHTML = `❌ ¡Oh, no! Era <strong>${quizTarget.name}</strong> (${formatNum(quizTarget.id)}).`;
+        playDexBeep(240, 0.25);
+      }
+
+      document.getElementById('streakNow').textContent = streakNow;
+      document.getElementById('streakMax').textContent = streakMax;
+      document.getElementById('nextQuizButton').classList.remove('hidden');
+    }
+
+    // =========================================================================
+    // 12. CONSTRUCTOR DE EQUIPO
+    // =========================================================================
+    const findPokemon = (id) => POKEDEX.find(p => p.id === id);
+
+    function saveTeam() {
+      store.set('team', team);
+      document.getElementById('teamCountBadge').textContent = `${team.length}/6`;
+      renderTeamView();
+    }
+
+    function addToTeam(id) {
+      const p = findPokemon(id);
+      if (team.includes(id)) { showToast(`${p.name} ya está en tu equipo`); return; }
+      if (team.length >= 6) { showToast('Tu equipo ya tiene 6 Pokémon'); playDexBeep(240, 0.15); return; }
+      team.push(id);
+      saveTeam();
+      showToast(`¡${p.name} se une a tu equipo! (${team.length}/6)`);
+      playDexBeep(880, 0.1);
+      if (isModalOpen() && currentModalId === id) openDetailModal(id);
+    }
+
+    function removeFromTeam(event, id) {
+      event.stopPropagation();
+      team = team.filter(x => x !== id);
+      saveTeam();
+      playDexBeep(320, 0.08);
+    }
+
+    function addFromSelect() {
+      addToTeam(Number(document.getElementById('teamAddSelect').value));
+    }
+
+    function randomTeam() {
+      team = [...POKEDEX].sort(() => Math.random() - 0.5).slice(0, 6).map(p => p.id);
+      saveTeam();
+      playVictoryFanfare();
+    }
+
+    function clearTeam() {
+      team = [];
+      saveTeam();
+      playDexBeep(320, 0.08);
+    }
+
+    function renderTeamView() {
+      const members = team.map(findPokemon);
+
+      document.getElementById('teamSlots').innerHTML = Array.from({ length: 6 }, (_, i) => {
+        const p = members[i];
+        if (!p) {
+          return `<div class="rounded-2xl border-3 border-dashed border-slate-400 bg-slate-50 min-h-[150px] flex flex-col items-center justify-center text-slate-400 font-extrabold text-xs">
+                    <span class="text-2xl">＋</span>Hueco ${i + 1}
+                  </div>`;
+        }
+        return `<div onclick="openDetailModal(${p.id})" class="poke-card rounded-2xl p-3 cursor-pointer relative text-center" style="background: linear-gradient(160deg, #FFFFFF 45%, ${POKEMON_TYPES[p.types[0]].light} 100%);">
+                  <button onclick="removeFromTeam(event, ${p.id})" title="Quitar del equipo" class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-600 text-white text-xs font-extrabold border-2 border-slate-900">✕</button>
+                  <img src="${artworkNormal(p.id)}" alt="${p.name}" class="w-20 h-20 mx-auto object-contain" />
+                  <h4 class="font-display font-bold text-sm text-slate-900 leading-tight">${p.name}</h4>
+                  <div class="flex justify-center gap-1 mt-1 flex-wrap">${p.types.map(t => typeBadge(t, true)).join('')}</div>
+                </div>`;
+      }).join('');
+
+      const coverage = document.getElementById('teamCoverage');
+      const report = document.getElementById('teamReport');
+
+      if (members.length === 0) {
+        coverage.innerHTML = '<p class="text-sm font-bold text-slate-500 py-6 text-center">Añade Pokémon para ver el análisis de tipos.</p>';
+        report.innerHTML = '<p>Tu equipo está vacío. Empieza con el selector de arriba, con el botón 🎒 de cada ficha o pide un equipo aleatorio.</p>';
+        return;
+      }
+
+      const charts = members.map(m => computeDefenseChart(m.types));
+      const rows = TYPE_LIST.map(atk => {
+        const weak = members.filter((m, i) => charts[i][atk] > 1);
+        const resist = members.filter((m, i) => charts[i][atk] < 1);
+        return { atk, weak, resist, balance: weak.length - resist.length };
+      });
+
+      coverage.innerHTML = rows.map(r => {
+        let verdict = { text: 'Neutro', cls: 'bg-slate-100 text-slate-700' };
+        if (r.weak.length >= 3 && r.balance > 0) verdict = { text: 'Peligro', cls: 'bg-red-500 text-white' };
+        else if (r.balance > 0) verdict = { text: 'Vigilar', cls: 'bg-amber-300 text-slate-900' };
+        else if (r.balance < 0) verdict = { text: 'Sólido', cls: 'bg-emerald-400 text-slate-900' };
+        return `<div class="grid grid-cols-12 items-center gap-2 px-2 py-1.5 rounded-xl border-2 border-slate-200">
+                  <div class="col-span-3 sm:col-span-2">${typeBadge(r.atk, true)}</div>
+                  <div class="col-span-5 sm:col-span-6 flex items-center gap-1 min-h-[28px] flex-wrap">
+                    ${r.weak.map(m => `<img src="${artworkNormal(m.id)}" alt="${m.name}" title="${m.name} es débil" class="w-7 h-7 object-contain" />`).join('') || '<span class="text-[11px] font-bold text-slate-400">Nadie débil</span>'}
+                  </div>
+                  <div class="col-span-2 text-[11px] font-extrabold text-emerald-700 text-center">${r.resist.length} resisten</div>
+                  <div class="col-span-2 text-right"><span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold border border-slate-900 ${verdict.cls}">${verdict.text}</span></div>
+                </div>`;
+      }).join('');
+
+      const avgBst = Math.round(members.reduce((sum, m) => sum + m.bst, 0) / members.length);
+      const fastest = [...members].sort((a, b) => b.stats.spe - a.stats.spe)[0];
+      const threats = rows.filter(r => r.balance >= 2).sort((a, b) => b.balance - a.balance);
+      const hits = TYPE_LIST.filter(def => members.some(m => m.types.some(t => (EFFECTIVENESS[t] || {})[def] === 2)));
+      const uncovered = TYPE_LIST.filter(t => !hits.includes(t));
+
+      const score = Math.max(0, Math.min(100, Math.round(
+        (hits.length / TYPE_LIST.length) * 50 + Math.max(0, 30 - threats.length * 8) + Math.max(0, Math.min(20, (avgBst - 450) / 10))
+      )));
+      const grade = score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 55 ? 'B' : score >= 40 ? 'C' : 'D';
+
+      report.innerHTML = `
+        <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-900 text-white">
+          <span class="font-pixel text-2xl text-amber-300">${grade}</span>
+          <div>
+            <span class="block text-xs font-extrabold text-slate-300">NOTA DEL EQUIPO</span>
+            <span class="font-display font-bold text-lg">${score}/100 ${members.length < 6 ? '<span class="text-xs text-slate-400">(incompleto)</span>' : ''}</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div class="p-2.5 rounded-xl bg-slate-50 border-2 border-slate-900"><span class="block font-extrabold text-slate-500">BST MEDIO</span><span class="font-display font-bold text-base text-slate-900">${avgBst}</span></div>
+          <div class="p-2.5 rounded-xl bg-slate-50 border-2 border-slate-900"><span class="block font-extrabold text-slate-500">MÁS RÁPIDO</span><span class="font-display font-bold text-base text-slate-900">${fastest.name}</span></div>
+        </div>
+        <div>
+          <span class="block text-xs font-extrabold text-red-700 mb-1">⚠️ Amenazas principales</span>
+          <div class="flex flex-wrap gap-1">${threats.length ? threats.slice(0, 5).map(r => typeBadge(r.atk, true)).join('') : '<span class="text-xs font-bold text-emerald-700">Ningún tipo pone en jaque a tu equipo.</span>'}</div>
+        </div>
+        <div>
+          <span class="block text-xs font-extrabold text-blue-700 mb-1">🎯 Cobertura ofensiva (STAB): ${hits.length}/${TYPE_LIST.length}</span>
+          <div class="flex flex-wrap gap-1">${uncovered.length ? uncovered.map(t => typeBadge(t, true)).join('') : '<span class="text-xs font-bold text-emerald-700">¡Golpeas súper eficaz a todos los tipos!</span>'}</div>
+          ${uncovered.length ? '<p class="text-[11px] font-bold text-slate-500 mt-1">Tipos a los que ningún miembro pega súper eficaz con su propio tipo.</p>' : ''}
+        </div>`;
+    }
+
+    function initTeamBuilder() {
+      const sorted = [...POKEDEX].sort((a, b) => a.name.localeCompare(b.name));
+      document.getElementById('teamAddSelect').innerHTML = sorted.map(p => `<option value="${p.id}">${p.name} (${formatNum(p.id)}) · ${p.types.join(' / ')}</option>`).join('');
+      document.getElementById('teamCountBadge').textContent = `${team.length}/6`;
+      renderTeamView();
+    }
+
+    // =========================================================================
+    // 13. INICIALIZACIÓN AL CARGAR LA PÁGINA
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', async () => {
+      document.getElementById('streakMax').textContent = streakMax;
+      applySoundButton();
+      setShellTheme(store.get('theme', 'kanto'), true);
+
+      // 1) Descargar (o leer de caché) la Pokédex completa
+      const { list, source } = await loadFullPokedex();
+      POKEDEX = list ? mergeWithCurated(list) : CURATED;
+      updateDataSourcePill(source, POKEDEX.length);
+      if (source === 'offline') showToast('No se pudo conectar con PokeAPI: se muestran las fichas destacadas');
+
+      // 2) Quitar capturas/equipo guardados que no existan en esta Pokédex
+      capturedIds = new Set([...capturedIds].filter(isKnownId));
+      team = team.filter(isKnownId).slice(0, 6);
+      document.getElementById('capturedCount').textContent = capturedIds.size;
+      document.getElementById('capturedTotal').textContent = POKEDEX.length;
+      document.getElementById('dexTotalText').textContent = POKEDEX.length;
+
+      // 3) Pintar todas las pestañas
+      buildTypeFilterBar();
+      renderPokedexCards();
+      renderRankingView();
+      initVersusArena();
+      initTypeLab();
+      initTeamBuilder();
+      loadNewQuizRound();
+      document.getElementById('bootLoader').remove();
+
+      document.addEventListener('keydown', (e) => {
+        if (isModalOpen()) {
+          if (e.key === 'Escape') closeDetailModal();
+          if (e.key === 'ArrowLeft') navigateModal(-1);
+          if (e.key === 'ArrowRight') navigateModal(1);
+          return;
+        }
+        const typing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
+        if (e.key === '/' && !typing) {
+          e.preventDefault();
+          switchTab('pokedex');
+          document.getElementById('searchInput').focus();
+        }
+      });
+
+      document.getElementById('searchInput').addEventListener('input', renderPokedexCards);
+      document.getElementById('genSelect').addEventListener('change', renderPokedexCards);
+      document.getElementById('catSelect').addEventListener('change', renderPokedexCards);
+      document.getElementById('sortSelect').addEventListener('change', renderPokedexCards);
+
+      document.getElementById('detailModal').addEventListener('click', (e) => {
+        if (e.target.id === 'detailModal') closeDetailModal();
+      });
+    });
+  </script>
+</body>
+</html>
